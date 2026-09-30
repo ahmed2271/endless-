@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiftLog</string>
+    <string name="rest_channel_name">Rest timer</string>
+    <string name="rest_channel_description">Countdown and alert when your rest period is over</string>
+    <string name="rest_running_title">Resting</string>
+    <string name="rest_done_title">Rest over</string>
+    <string name="rest_done_text">Time for your next set.</string>
+</resources>
