@@ -11,3 +11,4 @@
 .kotlin/
 *.apk
 *.aab
+__pycache__/
