@@ -7,7 +7,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 - Built in a cloud container, **not** on the workstation: no ORCA, no OpenMPI, no xtb, no Multiwfn here.
 - 4 cores, 16 GB RAM, Ubuntu 24.04, Python 3.13 (code kept compatible with Python 3.10+).
 - So every engine test here runs against `tests/fake_bin/orca`, a stand-in that writes ORCA 6-style
-  output. The real checks (Appendix D) are packaged as **Settings → ORCA checks** (`verify_orca.py`),
+  output. The real checks (Appendix D) are packaged as **Settings → ORCA checks** (`orca_studio/verify.py`),
   to run once on the workstation.
 
 ## Status
