@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Stand-in for orca_plot (tests only): reads menu answers on stdin, writes a cube file."""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _fakecube as fc  # noqa: E402
+
+base = sys.argv[1][:-4] if sys.argv[1].endswith(".gbw") else sys.argv[1]
+ans = [x.strip() for x in sys.stdin.read().splitlines()]
+print("                                    *** orca_plot (stand-in) ***")
+print("    1 - Enter type of plot\n    2 - Enter no of orbital to plot\n   10 - Generate the plot\n   11 - exit this program")
+ptype, idx, op, grid, i = 1, 0, 0, 40, 0
+while i < len(ans):
+    a = ans[i]
+    if a == "1":
+        ptype = int(ans[i + 1]); i += 2
+        if i < len(ans) and ans[i] in ("y", "n"):
+            i += 1
+        continue
+    if a == "2":
+        idx = int(ans[i + 1]); i += 2; continue
+    if a == "3":
+        op = int(ans[i + 1]); i += 2; continue
+    if a == "4":
+        grid = int(ans[i + 1]); i += 2; continue
+    if a == "5":
+        i += 2; continue
+    if a in ("6", "12"):
+        ptype = 100 + int(a); i += 2
+        if i < len(ans) and ans[i] in ("y", "n"):
+            i += 1
+        i += 1
+        continue
+    if a == "10":
+        atoms = fc.atoms_of(base)
+        if ptype == 1:
+            fc.write(f"{base}.mo{idx}{'b' if op else 'a'}.cube", atoms, grid, fc.mo(atoms, idx))
+        elif ptype == 2:
+            fc.write(f"{base}.eldens.cube", atoms, grid, fc.density(atoms))
+        elif ptype == 3:
+            fc.write(f"{base}.spindens.cube", atoms, grid, fc.density(atoms))
+        elif ptype == 43:
+            fc.write(f"{base}.esp.cube", atoms, grid, fc.esp(atoms))
+        elif ptype >= 100:
+            fc.write(f"{base}.cisdens.cube", atoms, grid, fc.mo(atoms, 1))
+        print("plot written")
+        i += 1; continue
+    if a == "11":
+        break
+    i += 1

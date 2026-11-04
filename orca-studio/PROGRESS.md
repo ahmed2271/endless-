@@ -17,7 +17,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 | 1 Core runner | done | passed with stand-in ORCA (tests/test_runner.py, tests/test_restart.py) |
 | 2 Extraction | done | parser tests pass on ORCA-6-style files (stand-in); real-file invariant tests wait for tests/data/real |
 | 3 Robustness | done | tests/test_robustness.py passes (stand-in ORCA with failure triggers) |
-| 4 Visuals | not started | |
+| 4 Visuals | done | tests/test_visuals.py passes (stand-in orca_plot / mep.py); browser check of viewer, MEP, spectra, figure grid |
 | 5 Advanced | not started | |
 
 ## Log
@@ -51,6 +51,16 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   profile versioning (old versions archived), validation of programs needed by cubes/MEP/Multiwfn,
   notifications (bell + browser pop-ups + optional command such as notify-send).
 - Tested: tests/test_robustness.py (5 tests) plus the full suite (20 passed).
+
+- Phase 4: 3Dmol viewer (structures, orbitals with isovalue slider, densities, spin density, MEP
+  surface with batch-wide fixed colour range and colour bar, atoms coloured by charge), orbital picker
+  (HOMO−5…LUMO+5 chips, ranges like "HOMO-3 to LUMO+3", α/β), cubes from the saved .gbw with
+  orca_plot driven by library menu answers, TDDFT difference/transition densities, MEP via mep.py or
+  orca_plot ESP, V_min/V_max on the 0.001 a.u. surface with nearest atom, automatic cubes after a
+  step, batch-wide cube generation, synchronized batch views, PNG snapshots and figure grids saved in
+  results/snapshots, script registry (Scripts page, test button), UV-Vis (Gaussian/Lorentzian, nm/eV,
+  sticks, Boltzmann-weighted, experimental overlay) and IR/Raman (Lorentzian, scaling) with PNG/SVG/CSV.
+- Not done: vibrational-mode animation (the spec lists it as "later").
 
 ## Open problems
 
