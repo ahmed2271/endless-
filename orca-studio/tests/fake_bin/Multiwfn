@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Stand-in for Multiwfn (tests only): a tiny menu program with the same feel."""
+import os
+import re
+import sys
+
+
+def ask():
+    try:
+        return input().strip()
+    except EOFError:
+        sys.exit(0)
+
+
+print(" Multiwfn -- A Multifunctional Wavefunction Analyzer")
+print(" Version 3.8(dev), release date: 2025-Jan-05")
+n = 4
+if os.path.exists("settings.ini"):
+    m = re.search(r"nthreads=\s*(\d+)", open("settings.ini").read())
+    if m:
+        n = int(m.group(1))
+print(f" The number of threads: {n}")
+if len(sys.argv) > 1:
+    f = sys.argv[1]
+else:
+    print(" Input file path, for example E:\\molden.molden")
+    f = ask()
+if not os.path.exists(f):
+    print(f" Error: Unable to find {f}")
+    sys.exit(1)
+print(f" Loaded {f} successfully!")
+while True:
+    print(" ============ Main function menu ============")
+    print(" 0 Show molecular structure and view orbitals")
+    print(" 7 Population analysis and calculation of atomic charges")
+    print(" 12 Quantitative analysis of molecular surface")
+    print(" q Exit program")
+    c = ask()
+    if c == "q":
+        break
+    if c == "7":
+        print(" 11 Atomic dipole moment corrected Hirshfeld population (ADCH)")
+        print(" 0 Return")
+        s = ask()
+        if s == "11":
+            print("                  ======= Summary of ADCH charges =======")
+            for i, (el, q) in enumerate((("O", -0.663148), ("H", 0.331574), ("H", 0.331574)), 1):
+                print(f" Atom:    {i}{el}   Corrected charge:{q:12.6f}  Before:{q / 2:12.6f}")
+            print(" Note: Sum of all ADCH charges:   0.000000")
+            print(" If outputting atom coordinates with charges to .chg file? (y/n)")
+            ask()
+        continue
+    if c == "12":
+        print(" Input 0 to start analysis")
+        ask()
+        print(" Global surface minimum:  -0.045021 a.u. (  -28.251 kcal/mol   -1.225 eV)")
+        print(" Global surface maximum:   0.071338 a.u. (   44.765 kcal/mol    1.941 eV)")
+        print(" Volume:    146.2213 Bohr^3  (  21.6676 Angstrom^3)")
+        print(" -1 Return to upper level menu")
+        ask()
+        continue
+    print(" Invalid input")

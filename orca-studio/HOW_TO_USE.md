@@ -12,11 +12,16 @@ column definitions, recipes) lives in lists you edit in the app, stored as plain
 
 ## 1. Install (once)
 
-Copy the `orca-studio` folder onto the workstation (for example to `~/orca-studio`), then in a
-terminal:
+Get the code onto the workstation (it is in the `orca-studio` folder of your GitHub repository),
+then run the installer:
 
 ```bash
-cd ~/orca-studio
+cd ~
+git clone -b claude/compassionate-brahmagupta-wptsmq https://github.com/ahmed2271/endless-.git orca-studio-repo
+```
+
+```bash
+cd ~/orca-studio-repo/orca-studio
 ./install_service.sh
 ```
 
@@ -89,7 +94,55 @@ Files land in `{calculations root}/{batch}/{molecule}/{01_step}/` with `{molecul
 `{molecule}.out` and `input.xyz`. Each step starts from the optimized geometry of the step before.
 `batch_log.txt` in the batch folder records everything.
 
-## 6. Calculation profiles
+## 6. Results, spectra and pictures
+
+Open a batch and use the tabs:
+
+- **Results**: one row per molecule, one column per field of the extraction profile (energies,
+  G, H, ZPE, imaginary frequencies, HOMO/LUMO, dipole, relative G, …). Click a header to sort, type in
+  the filter box, hover a grey "n/a" to see why a value is missing. Red cells are flagged (for example
+  imaginary frequencies or a non-converged optimization). Sub-tables (charges per atom, excited states,
+  frequencies) are below the main table. Buttons export **CSV**, **Excel** (one sheet per table),
+  **final geometries** (zip with one .xyz per molecule plus one multi-structure .xyz), a **Supporting
+  Information** text file and a **citations** list. *Save to results folder* writes CSV and Excel into
+  `{batch}/results/`. Per-atom charge tables also offer `.pqr` and `.mol2` files.
+- **Spectra**: UV-Vis from TDDFT states (Gaussian or Lorentzian broadening, FWHM in eV, nm or eV axis,
+  sticks, Boltzmann-weighted conformer spectra, overlay of your experimental data from a two-column
+  file) and IR / Raman (Lorentzian FWHM, frequency scaling). Each plot saves as PNG, SVG and CSV.
+- **Visuals**: all molecules side by side with the same orientation, isovalue and colour range
+  (structures, an orbital such as HOMO, or the MEP). *Make missing cubes for all* runs `orca_plot`
+  for every molecule; *Save snapshots* writes one PNG per molecule and *Figure grid* one combined
+  picture into `{batch}/results/snapshots/`.
+- Click a molecule (**Details**) for its 3D viewer, step logs and files, and the orbital panel:
+  pick HOMO−5 … LUMO+5 chips (or type a range such as `HOMO-3 to LUMO+3`), choose 80 points
+  (preview) or 120 (figures), and drag the isovalue slider. Also: electron and spin density, TDDFT
+  difference/transition densities, **MEP** (ESP coloured on the 0.001 a.u. density surface, with
+  V_min / V_max and the nearest atom), atoms coloured by charge, and *Add CHELPG charges afterwards*.
+  Cubes are made from the saved `.gbw`, so you can add orbitals later without rerunning anything.
+
+**Extraction profiles** decide what goes into the Results tab. Add built-in fields (Appendix C of
+the specification), **custom patterns** (search text, which occurrence, which number; press
+*Test on a sample .out* to see the matched line highlighted), **formulas** (`rel(G)`,
+`boltzmann(G, 298.15)`, `fragsum(q, 'donor')`, `E_sp + Gcorr`, …), Fukui functions, ΔSCF values
+and Multiwfn results. Choose the source step and the unit (Eh, kcal/mol, kJ/mol, eV, cm⁻¹, nm).
+If a field needs something the calculation does not do (for example MBIS charges), validation tells
+you and offers a button that adds it to the profile.
+
+**Analyze a folder** (left menu) runs an extraction profile on any folder of old `.out` files.
+
+## 7. Scripts and Multiwfn
+
+- **Scripts → Script registry**: `mep.py` is registered already; set its path once in Settings. Any
+  script can run in a step folder after the step succeeds (tick it in the step's workflow options).
+- **Scripts → Record a new recipe**: pick a small finished molecule, and Multiwfn opens in a
+  terminal inside the page. Click through the menus as usual; the app records every answer. Then
+  click the output lines that hold your results (a number or a table) to turn them into result
+  fields, give the recipe a name and save it. Use the results in an extraction profile with
+  *+ Multiwfn result*. After updating Multiwfn, press *Re-test all recipes*: menu numbers can change
+  between versions and the re-test shows exactly what changed. Settings → Multiwfn threads sets
+  the thread count (the app copies Multiwfn's settings.ini into the work folder with that value).
+
+## 8. Calculation profiles
 
 **Calculation profiles → + New profile** opens a table: one row per step, one column per setting.
 New profiles show Step, Method and Basis; **+ Add column** adds any other setting (dispersion,
@@ -107,18 +160,47 @@ lets you hand-edit the whole input for one step (clearly marked in the table).
 
 Saving creates a new version; batches keep the version they ran with.
 
-## 7. Network access (optional)
+Useful workflow options per step: **pause for review** (the batch waits for *Continue*), **run only
+if a check fired** (for example re-optimize only molecules with an imaginary frequency), **retry on
+SCF failure** (SlowConv, then KDIIS + SOSCF, …; the strategies are a library list), **restart
+unconverged optimizations**, **fix imaginary frequencies** (displace along the mode and re-optimize),
+**time limit**, **files to keep** and **orbital cubes / MEP after success**. **Save as template**
+stores a configured step for reuse; *Update from template* pulls later template changes on request.
+
+For Fukui functions, make three single-point steps on the same geometry and set the *Charge change*
+column to 0, −1 (N+1 electrons) and +1 (N−1 electrons); multiplicity follows automatically unless
+you set *Multiplicity override*. ΔSCF is a step type that runs ground state, excited state and
+(optionally) triplet sub-jobs.
+
+## 9. Network access (optional)
 
 Settings → Access → "Local network, with password", set a password, save, then
 `systemctl --user restart orca-studio`. Others on the network open `http://<workstation-ip>:8080`
 and log in. Requests from the workstation itself never need the password.
 
-## 8. Backup
+## 10. Backup
 
 Settings → **Export settings, libraries and profiles (zip)**. Import the zip on another machine
 or after a reinstall. Calculation folders and the job database (`studio.db`) are separate; copy the
 `~/dft_projects` folder to back up everything.
 
-## 9. Uninstall
+## 11. Uninstall
 
 `./uninstall_service.sh` removes the service. Your data stays where it is.
+
+## 12. Checking the parsers with your own outputs
+
+After the first real batch, copy its outputs into the test folder and run the parser tests:
+
+```bash
+cd ~/orca-studio-repo/orca-studio
+.venv/bin/python tests/collect_real_outputs.py ~/dft_projects/<batch name>
+```
+
+```bash
+.venv/bin/python -m pip install pytest httpx
+```
+
+```bash
+.venv/bin/python -m pytest tests/test_parsers.py
+```

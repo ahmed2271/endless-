@@ -58,7 +58,11 @@ const Visuals = {
           h("button", {onclick: () => make([{kind: "tddft_difference", state: st.state}])}, "Difference density"),
           h("button", {onclick: () => make([{kind: "tddft_transition", state: st.state}])}, "Transition density")) : null,
         h("h3", null, "Atoms coloured by charge"),
-        await Visuals.chargePicker(b, m, vbox));
+        await Visuals.chargePicker(b, m, vbox),
+        h("div", {class: "row", style: {marginTop: "6px"}}, h("button", {class: "small", title: "Runs orca_chelpg on the saved .gbw; no need to rerun the job", onclick: async () => {
+          const r = await App.post(`/api/molecules/${m.id}/chelpg`, {step: st.step});
+          App.toast(`CHELPG charges added (${r.charges.length} atoms). Use a CHELPG charges field to see them in Results.`);
+        }}, "Add CHELPG charges afterwards (orca_chelpg)")));
       await listCubes();
     }
     async function make(items) {

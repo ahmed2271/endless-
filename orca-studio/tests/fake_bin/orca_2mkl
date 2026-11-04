@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Stand-in for orca_2mkl (tests only): orca_2mkl base -molden -> base.molden.input."""
+import sys
+
+base = sys.argv[1]
+open(f"{base}.molden.input", "w").write("[Molden Format]\n[Title]\n stand-in\n[Atoms] AU\n")
+print(f"stand-in: wrote {base}.molden.input")

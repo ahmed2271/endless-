@@ -90,6 +90,30 @@ def mol_mep(mid: int, data: dict = Body(default={})):
         err(str(e))
 
 
+@router.post("/api/molecules/{mid}/chelpg")
+def mol_chelpg(mid: int, data: dict = Body(default={})):
+    """Post hoc CHELPG charges: orca_chelpg {basename}.gbw, without rerunning the job."""
+    import subprocess
+    from . import config, tools
+    from .parsers.orca_out import OrcaOut
+    m = _mol(mid)
+    k = _step(m, data.get("step"))
+    sd, base = visuals.step_paths(m, k)
+    s = config.load_settings()
+    exe = config.utility_path("orca_chelpg", s)
+    if not tools.is_exec(exe):
+        err(f"orca_chelpg not found at {exe}")
+    out = sd / f"{base}.chelpg_posthoc.out"
+    with open(out, "w") as fh:
+        subprocess.run([exe, f"{base}.gbw"], cwd=sd, stdout=fh, stderr=subprocess.STDOUT, timeout=3600, env=tools.build_env(s))
+    ch = OrcaOut.from_file(out).chelpg
+    if not ch:
+        err(f"orca_chelpg ran but no CHELPG table was found in {out.name}")
+    from . import extraction
+    extraction.extract_batch(m["batch_id"], [m["id"]])
+    return {"charges": ch, "file": str(out)}
+
+
 @router.get("/api/batches/{bid}/mep_range")
 def mep_range(bid: int):
     return visuals.batch_mep_range(bid)

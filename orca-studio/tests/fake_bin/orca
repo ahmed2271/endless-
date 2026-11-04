@@ -102,6 +102,10 @@ def main():
     e0 = -sum(Z.get(a[0], 6) for a in atoms) * (0.5 if xtb else 4.2) - 0.01 * len(atoms)
     if any("b3lyp" in k for k in kwl):
         e0 -= 0.12
+    if "deltascf" in kwl:
+        e0 += 0.15          # excited state (ΔSCF)
+    if mult == 3:
+        e0 += 0.10          # triplet
     geom = [list(a) for a in atoms]
     cycles = 1
     if opt:

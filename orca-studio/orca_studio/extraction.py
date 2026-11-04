@@ -101,8 +101,35 @@ def _atoms_param(p, ctx, natoms):
     return [i for i, a in enumerate(ctx.get("elements") or []) if a in parts]
 
 
+def charges_of(o, scheme):
+    """Charges by scheme; CHELPG falls back to a post-hoc orca_chelpg run next to the .out."""
+    tab = o.charges(scheme)
+    if tab is None and scheme == "chelpg" and o.path:
+        ph = Path(o.path).with_suffix(".chelpg_posthoc.out")
+        if ph.exists():
+            tab = OrcaOut.from_file(ph).chelpg
+    return tab
+
+
+def _scheme_spread(o, p):
+    schemes = str(p.get("schemes") or "mulliken loewdin hirshfeld mbis chelpg").split()
+    thr = float(p.get("threshold") or 0.3)
+    tabs = {s: charges_of(o, s) for s in schemes}
+    tabs = {s: {r["atom"]: r for r in t} for s, t in tabs.items() if t}
+    if len(tabs) < 2:
+        return None
+    atoms = sorted(set.intersection(*[set(t) for t in tabs.values()]))
+    rows = []
+    for a in atoms:
+        vals = {s: t[a]["charge"] for s, t in tabs.items()}
+        spread = max(vals.values()) - min(vals.values())
+        rows.append(dict({"atom": a, "element": next(iter(tabs.values()))[a]["element"]}, **vals,
+                         spread=spread, disagree=spread > thr))
+    return rows
+
+
 def _charge_sel(o, p, ctx):
-    tab = o.charges(p.get("scheme", "mulliken"))
+    tab = charges_of(o, p.get("scheme", "mulliken"))
     if not tab:
         return None
     key = p.get("value", "charge")
@@ -239,7 +266,9 @@ def _reg():
     R("quadrupole_iso", "Quadrupole (isotropic)", "Electric properties", "none")(lambda o, p, c: o.quadrupole_isotropic)
     R("polarizability", "Polarizability (isotropic, au)", "Electric properties", "none")(lambda o, p, c: o.polarizability_isotropic)
     R("charges", "Atomic charges", "Electric properties", "charge", "table", params=["scheme"])(
-        lambda o, p, c: o.charges(p.get("scheme", "mulliken")))
+        lambda o, p, c: charges_of(o, p.get("scheme", "mulliken")))
+    R("scheme_spread", "Charge scheme spread (flags atoms where schemes disagree)", "Electric properties", "charge", "table",
+      params=["schemes", "threshold"])(lambda o, p, c: _scheme_spread(o, p))
     R("charge_on", "Charge on atoms / element / fragment", "Electric properties", "charge", params=["scheme", "atoms", "value"])(
         lambda o, p, c: _charge_sel(o, p, c))
     R("bond_orders", "Bond orders", "Electric properties", "none", "table", params=["scheme"])(

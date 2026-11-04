@@ -18,7 +18,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 | 2 Extraction | done | parser tests pass on ORCA-6-style files (stand-in); real-file invariant tests wait for tests/data/real |
 | 3 Robustness | done | tests/test_robustness.py passes (stand-in ORCA with failure triggers) |
 | 4 Visuals | done | tests/test_visuals.py passes (stand-in orca_plot / mep.py); browser check of viewer, MEP, spectra, figure grid |
-| 5 Advanced | not started | |
+| 5 Advanced | done | tests/test_advanced.py passes (stand-in Multiwfn / orca_chelpg); browser check of record mode |
 
 ## Log
 
@@ -62,6 +62,17 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   sticks, Boltzmann-weighted, experimental overlay) and IR/Raman (Lorentzian, scaling) with PNG/SVG/CSV.
 - Not done: vibrational-mode animation (the spec lists it as "later").
 
+- Phase 5: Multiwfn recipes (run via orca_2mkl → .molden, answers on stdin, settings.ini with the
+  thread count copied into the work folder), record mode (xterm.js terminal over a websocket to a
+  pseudo-terminal; answers recorded, sample name replaced by {molden}; click output lines to make
+  value or table rules), re-test on the stored sample with a diff, recipe results as extraction
+  fields, formula fields (relative, Boltzmann, reference, fragment sums / charge transfer), Fukui
+  f+ f− f0 and dual descriptor, ΔSCF sub-jobs (gs / es with MORead / optional triplet) with ΔE,
+  spin-purified ΔE, ⟨S²⟩ and collapse check, charge scheme spread, post-hoc CHELPG (orca_chelpg),
+  .pqr/.mol2 exports, citation report (ORCA's suggested citations + library + recipes), LAN mode
+  with password (PBKDF2 hash, signed cookie; this computer never needs the password).
+- Tested: tests/test_advanced.py (5 tests).
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.
@@ -69,3 +80,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   done on the workstation; here it ran with the stand-in.
 - install_service.sh could not be tested here (no systemd user session in the container).
 - cclib is not used: it could not be tested against ORCA 6.0.1 output here.
+- Not implemented: ⟨S_A·S_B⟩ from ORCA's local spin analysis (use a custom pattern field), SOC matrix
+  elements as a built-in table, vibrational mode animation.
+- orca_plot menu answers, the MBIS large-print extras and the ΔSCF block are best guesses for 6.0.1
+  until ORCA checks has run; the checks update the libraries.
