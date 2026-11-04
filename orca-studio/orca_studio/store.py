@@ -322,6 +322,13 @@ def save_calc_profile(profile: dict) -> dict:
                 version += 1
             else:
                 return old
+        if old:
+            vdir = kind_dir("calc_profiles") / "versions" / pid
+            oldv = vdir / f"v{int(old.get('version') or 1)}.yaml"
+            if not oldv.exists():
+                keep = dict(old)
+                keep.pop("id", None)
+                write_yaml(oldv, keep)
         profile["version"] = version
         profile["saved_at"] = datetime.now().isoformat(timespec="seconds")
         if old and old.get("builtin"):

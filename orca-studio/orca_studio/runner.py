@@ -23,6 +23,7 @@ from .molecules import last_frame_of_trj, parse_xyz_text, write_xyz
 from .parsers.aux_files import displace_along_mode, parse_hess
 
 EXIT_FILE = ".studio_exit"
+COND_SKIP = "skipped (condition):"
 KEEP = {
     "results": ["*.inp", "*.out", "*.xyz", "*.hess", "*.gbw", "*.densities", "*.densitiesinfo", "*.scfp",
                 "*.property.txt", "*.cube", "*.molden", "*.txt", "*.json", "*.png", "*.cis", "*.engrad", ".studio_*"],
@@ -638,12 +639,18 @@ class Runner:
                 if prev["status"] in ("failed", "cancelled"):
                     self._skip(t, f"skipped: step {k} {prev['status']}")
                     continue
+                # run conditions look at the last step that actually ran for this molecule
+                ran = prev
+                j = k - 1
+                while ran and ran["status"] == "skipped" and (ran.get("message") or "").startswith(COND_SKIP) and j > 0:
+                    j -= 1
+                    ran = by.get((t["molecule_id"], j))
                 cond = batches.workflow(steps[k])["run_condition"]
-                if cond == "prev_success" and prev["status"] != "done":
-                    self._skip(t, f"skipped: step {k} did not succeed")
+                if cond == "prev_success" and ran["status"] != "done":
+                    self._skip(t, f"{COND_SKIP} step {j + 1} did not succeed")
                     continue
-                if cond == "check_fired" and not prev["fired"]:
-                    self._skip(t, f"skipped: no check fired in step {k}")
+                if cond == "check_fired" and not ran["fired"]:
+                    self._skip(t, f"{COND_SKIP} no check fired in step {j + 1}")
                     continue
             out.append(t)
         order = {}

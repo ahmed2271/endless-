@@ -149,6 +149,23 @@ def validate(profile: dict, molecules: list[dict] | None = None, extraction_prof
                     issues.append(_issue("error", f"{label}: {basis_entry['label']} does not cover "
                                                   f"{', '.join(missing)} in {m['name']}", i, m["name"]))
 
+        cubes = (step.get("workflow") or {}).get("cubes") or {}
+        if cubes.get("orbitals") or cubes.get("densities"):
+            if not program_ok(config.utility_path("orca_plot", s)):
+                issues.append(_issue("warning", f"{label}: cubes requested but orca_plot was not found", i))
+        if cubes.get("mep"):
+            mep = s.get("script_paths", {}).get("mep", "")
+            from . import store as _st
+            esp = _st.get_entry("orca_plot", "esp") or {}
+            if not (mep and os.path.isfile(os.path.expanduser(mep))) and (esp.get("hidden") or "unverified" in (esp.get("tags") or [])):
+                issues.append(_issue("warning", f"{label}: MEP requested, but mep.py is not set in Settings and the "
+                                                f"orca_plot ESP route is not confirmed (run ORCA checks)", i))
+
+    if extraction_profile and any(f.get("kind") == "multiwfn" for f in extraction_profile.get("fields") or []):
+        if not program_ok(s["programs"].get("multiwfn", "")):
+            issues.append(_issue("error", "The extraction profile uses Multiwfn results, but Multiwfn is not set in Settings"))
+        if not program_ok(config.utility_path("orca_2mkl", s)):
+            issues.append(_issue("error", "Multiwfn recipes need orca_2mkl (ORCA folder) to make .molden files"))
     if extraction_profile:
         from .extraction import requirement_issues
         issues.extend(requirement_issues(profile, extraction_profile, cat))

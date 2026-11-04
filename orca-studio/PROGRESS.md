@@ -16,7 +16,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 |---|---|---|
 | 1 Core runner | done | passed with stand-in ORCA (tests/test_runner.py, tests/test_restart.py) |
 | 2 Extraction | done | parser tests pass on ORCA-6-style files (stand-in); real-file invariant tests wait for tests/data/real |
-| 3 Robustness | not started | |
+| 3 Robustness | done | tests/test_robustness.py passes (stand-in ORCA with failure triggers) |
 | 4 Visuals | not started | |
 | 5 Advanced | not started | |
 
@@ -42,6 +42,15 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 - Tested: tests/test_parsers.py, tests/test_extraction.py (all pass). On the workstation, after the
   acceptance run: `python tests/collect_real_outputs.py <batch folder>` then pytest runs invariant
   tests on the real files.
+
+- Phase 3: SCF retry strategies (library entries, tried in order, attempt files kept as
+  .attemptN.out/.inp), optimization restarts from the last geometry, imaginary-mode displacement from
+  the .hess file (re-optimizes; adds Opt for Freq-only steps), pause-for-review with Continue, run
+  conditions (prev_success / check_fired look at the last step that actually ran), continue per
+  molecule, stop-the-batch rule, time limits, step templates (copy + "Update from template"),
+  profile versioning (old versions archived), validation of programs needed by cubes/MEP/Multiwfn,
+  notifications (bell + browser pop-ups + optional command such as notify-send).
+- Tested: tests/test_robustness.py (5 tests) plus the full suite (20 passed).
 
 ## Open problems
 
