@@ -1,0 +1,11 @@
+id: dscf_alphaconf
+label: ΔSCF alpha occupations
+type: text
+destination: block:scf
+template: ALPHACONF {value}
+subjob: es
+default: 0,1
+applies_to:
+- dscf
+tags:
+- unverified

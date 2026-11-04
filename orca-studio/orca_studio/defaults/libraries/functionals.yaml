@@ -1,0 +1,15 @@
+id: functionals
+label: Functionals
+entries:
+- {id: b3lyp, label: B3LYP, orca_text: B3LYP, cite: 'Becke, J. Chem. Phys. 98, 5648 (1993)'}
+- {id: pbe0, label: PBE0, orca_text: PBE0}
+- {id: pbe, label: PBE, orca_text: PBE}
+- {id: bp86, label: BP86, orca_text: BP86}
+- {id: tpssh, label: TPSSh, orca_text: TPSSh}
+- {id: m062x, label: M06-2X, orca_text: M062X}
+- {id: camb3lyp, label: CAM-B3LYP, orca_text: CAM-B3LYP}
+- {id: wb97xd3, label: wB97X-D3, orca_text: wB97X-D3, tags: [includes_dispersion]}
+- {id: wb97xv, label: wB97X-V, orca_text: wB97X-V, tags: [includes_dispersion]}
+- {id: wb97mv, label: wB97M-V, orca_text: wB97M-V, tags: [includes_dispersion]}
+- {id: b2plyp, label: B2PLYP, orca_text: B2PLYP, notes: 'Double hybrid: add a /C auxiliary basis'}
+- {id: hf, label: HF, orca_text: HF}

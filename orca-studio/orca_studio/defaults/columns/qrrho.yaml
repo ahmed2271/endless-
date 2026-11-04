@@ -1,0 +1,12 @@
+id: qrrho
+label: Low-frequency treatment (QRRHO)
+type: toggle
+destination: block:freq
+template: QRRHO true
+applies_to:
+- opt_freq
+- freq
+tags:
+- unverified
+notes: '[VERIFY] Appendix D check 3'
+default: ''

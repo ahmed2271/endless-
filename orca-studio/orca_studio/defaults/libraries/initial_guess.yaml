@@ -1,0 +1,7 @@
+id: initial_guess
+label: Initial guess
+entries:
+- {id: pmodel, label: PModel, orca_text: PModel, tags: ['exclusive:guess']}
+- {id: patom, label: PAtom, orca_text: PAtom, tags: ['exclusive:guess']}
+- {id: hueckel, label: Hueckel, orca_text: Hueckel, tags: ['exclusive:guess']}
+- {id: hcore, label: HCore, orca_text: HCore, tags: ['exclusive:guess']}

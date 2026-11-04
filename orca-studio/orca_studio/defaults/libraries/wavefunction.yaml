@@ -1,0 +1,11 @@
+id: wavefunction
+label: Wavefunction
+entries:
+- {id: uks, label: UKS / UHF, orca_text: UKS, tags: ['exclusive:wf']}
+- {id: roks, label: ROKS / ROHF, orca_text: ROKS, tags: ['exclusive:wf']}
+- {id: rks, label: RKS / RHF, orca_text: RKS, tags: ['exclusive:wf']}
+- id: brokensym11
+  label: Broken symmetry 1,1
+  orca_text: UKS
+  also:
+  - {destination: 'block:scf', orca_text: 'BrokenSym 1,1'}

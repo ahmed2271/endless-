@@ -1,0 +1,11 @@
+id: dscf_betaconf
+label: ΔSCF beta occupations
+type: text
+destination: block:scf
+template: BETACONF {value}
+subjob: es
+applies_to:
+- dscf
+tags:
+- unverified
+default: ''

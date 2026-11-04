@@ -1,0 +1,12 @@
+id: method
+label: Method
+type: dropdown
+library:
+- functionals
+- composite
+- semiempirical
+- correlated
+slot: method
+applies_to:
+- all
+default: ''

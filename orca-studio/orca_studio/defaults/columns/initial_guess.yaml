@@ -1,0 +1,10 @@
+id: initial_guess
+label: Initial guess
+type: dropdown
+library:
+- initial_guess
+slot: scf
+applies_to:
+- all
+- '!xtb'
+default: ''

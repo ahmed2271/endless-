@@ -1,0 +1,12 @@
+# {solvent} is replaced by the ORCA text of the step's Solvent cell.
+id: solvent_models
+label: Solvent models
+entries:
+- {id: cpcm, label: CPCM, orca_text: 'CPCM({solvent})'}
+- id: smd
+  label: SMD
+  orca_text: 'CPCM({solvent})'
+  also:
+  - {destination: 'block:cpcm', orca_text: "SMD true\nSMDsolvent \"{solvent}\""}
+- {id: alpb, label: ALPB (xTB only), orca_text: 'ALPB({solvent})', applies_to: [xtb], tags: [unverified], notes: '[VERIFY] ALPB keyword on ORCA 6.0.1'}
+- {id: cpcm_custom, label: CPCM (custom ε, n), orca_text: CPCM, notes: 'Set the dielectric constant and refractive index columns'}

@@ -1,0 +1,6 @@
+# Replaces the "Freq" job keyword of the step type when chosen.
+id: hessian
+label: Hessian
+entries:
+- {id: freq, label: Analytical (Freq), orca_text: Freq}
+- {id: numfreq, label: Numerical (NumFreq), orca_text: NumFreq}

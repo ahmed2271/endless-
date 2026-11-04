@@ -1,0 +1,8 @@
+id: maxcore
+label: Memory per core (MB)
+type: number
+special: maxcore
+applies_to:
+- all
+notes: '%maxcore. Blank = profile default'
+default: ''

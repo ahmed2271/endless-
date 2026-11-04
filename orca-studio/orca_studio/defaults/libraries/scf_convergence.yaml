@@ -1,0 +1,7 @@
+id: scf_convergence
+label: SCF convergence
+entries:
+- {id: loosescf, label: LooseSCF, orca_text: LooseSCF, tags: ['exclusive:scfconv']}
+- {id: normalscf, label: NormalSCF, orca_text: NormalSCF, tags: ['exclusive:scfconv']}
+- {id: tightscf, label: TightSCF, orca_text: TightSCF, tags: ['exclusive:scfconv']}
+- {id: verytightscf, label: VeryTightSCF, orca_text: VeryTightSCF, tags: ['exclusive:scfconv']}

@@ -1,0 +1,19 @@
+# SCF retry strategies (section 8.6). Tried in the order chosen on the step.
+id: retry_strategies
+label: SCF retry strategies
+entries:
+- id: slowconv_maxiter
+  label: SlowConv + MaxIter 500
+  orca_text: SlowConv
+  also:
+  - {destination: 'block:scf', orca_text: MaxIter 500}
+- id: kdiis_soscf
+  label: KDIIS + SOSCF
+  orca_text: KDIIS SOSCF
+  also:
+  - {destination: 'block:scf', orca_text: MaxIter 500}
+- id: veryslowconv
+  label: VerySlowConv + MaxIter 1000
+  orca_text: VerySlowConv
+  also:
+  - {destination: 'block:scf', orca_text: MaxIter 1000}

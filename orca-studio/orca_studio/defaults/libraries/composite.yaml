@@ -1,0 +1,7 @@
+id: composite
+label: Composite methods
+entries:
+- {id: r2scan3c, label: r2SCAN-3c, orca_text: r2SCAN-3c, tags: [includes_dispersion, includes_basis]}
+- {id: b973c, label: B97-3c, orca_text: B97-3c, tags: [includes_dispersion, includes_basis]}
+- {id: pbeh3c, label: PBEh-3c, orca_text: PBEh-3c, tags: [includes_dispersion, includes_basis]}
+- {id: hf3c, label: HF-3c, orca_text: HF-3c, tags: [includes_dispersion, includes_basis]}

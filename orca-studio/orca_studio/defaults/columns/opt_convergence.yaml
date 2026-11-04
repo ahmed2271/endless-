@@ -1,0 +1,11 @@
+id: opt_convergence
+label: Opt convergence
+type: dropdown
+library:
+- opt_convergence
+slot: job
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

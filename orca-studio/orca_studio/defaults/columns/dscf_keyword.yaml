@@ -1,0 +1,12 @@
+id: dscf_keyword
+label: ΔSCF keywords
+type: text
+destination: keyword_line
+template: '{value}'
+slot: method
+subjob: es
+default: UKS DeltaSCF
+applies_to:
+- dscf
+tags:
+- unverified

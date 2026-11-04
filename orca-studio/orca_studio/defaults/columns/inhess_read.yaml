@@ -1,0 +1,12 @@
+id: inhess_read
+label: Initial Hessian file
+type: text
+destination: block:geom
+template: |-
+  InHess Read
+  InHessName "{value}"
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

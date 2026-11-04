@@ -1,0 +1,10 @@
+id: wavefunction
+label: Wavefunction
+type: dropdown
+library:
+- wavefunction
+slot: method
+applies_to:
+- all
+- '!xtb'
+default: ''

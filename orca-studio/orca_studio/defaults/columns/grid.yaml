@@ -1,0 +1,10 @@
+id: grid
+label: Grid
+type: dropdown
+library:
+- grids
+slot: grid
+applies_to:
+- all
+- '!xtb'
+default: ''

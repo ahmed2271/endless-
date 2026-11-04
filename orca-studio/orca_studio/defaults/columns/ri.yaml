@@ -1,0 +1,10 @@
+id: ri
+label: RI
+type: dropdown
+library:
+- ri
+slot: ri
+applies_to:
+- all
+- '!xtb'
+default: ''

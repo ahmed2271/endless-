@@ -1,0 +1,10 @@
+id: recalc_hess
+label: Recalculate Hessian every
+type: number
+destination: block:geom
+template: Recalc_Hess {value}
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

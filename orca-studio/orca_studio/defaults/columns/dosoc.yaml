@@ -1,0 +1,13 @@
+id: dosoc
+label: Spin-orbit coupling
+type: toggle
+destination: block:tddft
+template: DoSOC true
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

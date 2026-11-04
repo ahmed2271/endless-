@@ -1,0 +1,10 @@
+id: dispersion
+label: Dispersion
+type: dropdown
+library:
+- dispersion
+slot: dispersion
+applies_to:
+- all
+- '!xtb'
+default: ''

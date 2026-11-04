@@ -1,0 +1,10 @@
+id: solvent_model
+label: Solvent model
+type: dropdown
+library:
+- solvent_models
+slot: solvent
+applies_to:
+- all
+notes: Needs the Solvent column too
+default: ''

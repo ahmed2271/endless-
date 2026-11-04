@@ -1,0 +1,7 @@
+id: dscf_triplet
+label: ΔSCF triplet (spin purification)
+type: toggle
+special: dscf_triplet
+applies_to:
+- dscf
+default: ''

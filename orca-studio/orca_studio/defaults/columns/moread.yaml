@@ -1,0 +1,9 @@
+id: moread
+label: Read previous orbitals
+type: toggle
+special: moread
+applies_to:
+- all
+- '!xtb'
+notes: MORead of the previous step .gbw
+default: ''

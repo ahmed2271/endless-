@@ -1,0 +1,15 @@
+id: nto
+label: Natural transition orbitals
+type: toggle
+destination: block:tddft
+template: |-
+  DoNTO true
+  NTOThresh 1e-4
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

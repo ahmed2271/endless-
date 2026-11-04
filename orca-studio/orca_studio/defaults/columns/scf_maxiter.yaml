@@ -1,0 +1,9 @@
+id: scf_maxiter
+label: SCF max iterations
+type: number
+destination: block:scf
+template: MaxIter {value}
+applies_to:
+- all
+- '!xtb'
+default: ''

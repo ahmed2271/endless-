@@ -1,0 +1,6 @@
+# [VERIFY all ΔSCF syntax on 6.0.1] (Appendix D, check 5)
+id: dscf_mom
+label: ΔSCF occupation method
+entries:
+- {id: mom, label: MOM, orca_text: DOMOM true, destination: 'block:scf', tags: [unverified]}
+- {id: imom, label: IMOM, orca_text: "DOMOM true\nPMOM true", destination: 'block:scf', tags: [unverified]}

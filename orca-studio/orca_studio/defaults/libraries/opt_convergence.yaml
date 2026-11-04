@@ -1,0 +1,7 @@
+id: opt_convergence
+label: Optimization convergence
+entries:
+- {id: looseopt, label: LooseOpt, orca_text: LooseOpt, tags: ['exclusive:optconv']}
+- {id: normalopt, label: NormalOpt, orca_text: NormalOpt, tags: ['exclusive:optconv']}
+- {id: tightopt, label: TightOpt, orca_text: TightOpt, tags: ['exclusive:optconv']}
+- {id: verytightopt, label: VeryTightOpt, orca_text: VeryTightOpt, tags: ['exclusive:optconv']}

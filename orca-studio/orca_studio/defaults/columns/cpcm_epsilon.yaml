@@ -1,0 +1,9 @@
+id: cpcm_epsilon
+label: Dielectric constant
+type: number
+destination: block:cpcm
+template: epsilon {value}
+applies_to:
+- all
+- '!xtb'
+default: ''

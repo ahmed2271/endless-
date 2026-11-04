@@ -1,0 +1,9 @@
+id: mbis_largeprint
+label: MBIS extras
+type: toggle
+destination: block:method
+template: MBIS_LARGEPRINT true
+applies_to:
+- all
+- '!xtb'
+default: ''

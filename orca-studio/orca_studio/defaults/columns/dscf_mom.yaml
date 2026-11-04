@@ -1,0 +1,10 @@
+id: dscf_mom
+label: ΔSCF MOM / IMOM
+type: dropdown
+library:
+- dscf_mom
+subjob: es
+slot: scf
+applies_to:
+- dscf
+default: imom

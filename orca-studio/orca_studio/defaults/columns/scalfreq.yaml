@@ -1,0 +1,9 @@
+id: scalfreq
+label: Frequency scaling
+type: number
+destination: block:freq
+template: ScalFreq {value}
+applies_to:
+- opt_freq
+- freq
+default: ''

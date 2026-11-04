@@ -1,0 +1,13 @@
+id: triplets
+label: Triplets
+type: toggle
+destination: block:tddft
+template: Triplets true
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

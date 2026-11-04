@@ -1,0 +1,12 @@
+id: pressure
+label: Pressure (atm)
+type: number
+destination: block:freq
+template: Pressure {value}
+applies_to:
+- opt_freq
+- freq
+tags:
+- unverified
+notes: '[VERIFY] Appendix D check 3'
+default: ''

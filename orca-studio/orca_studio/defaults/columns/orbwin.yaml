@@ -1,0 +1,16 @@
+id: orbwin
+label: TDDFT orbital window
+type: text
+destination: block:tddft
+template: OrbWin[0] = {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+tags:
+- unverified
+notes: '[VERIFY] Appendix D check 4'
+default: ''

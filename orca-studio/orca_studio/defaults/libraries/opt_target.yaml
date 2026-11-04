@@ -1,0 +1,7 @@
+# Replaces the "Opt" job keyword of the step type when chosen.
+id: opt_target
+label: Optimization target
+entries:
+- {id: opt, label: Minimum (Opt), orca_text: Opt}
+- {id: optts, label: Transition state (OptTS), orca_text: OptTS}
+- {id: nebts, label: NEB-TS, orca_text: NEB-TS, notes: 'Needs a product structure; out of scope for v1 automation'}

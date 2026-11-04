@@ -1,0 +1,6 @@
+id: pno
+label: PNO accuracy
+entries:
+- {id: loosepno, label: LoosePNO, orca_text: LoosePNO, tags: ['exclusive:pno']}
+- {id: normalpno, label: NormalPNO, orca_text: NormalPNO, tags: ['exclusive:pno']}
+- {id: tightpno, label: TightPNO, orca_text: TightPNO, tags: ['exclusive:pno']}

@@ -1,0 +1,19 @@
+# Text templates used when the input file is assembled (section 6.6).
+# keyword_slots is the fixed order of the "!" line. single_line_directives are % lines without "end".
+id: assembly
+label: Input assembly templates
+entries:
+- {id: header_comment, label: Header comment, orca_text: '# ORCA Studio | {profile} v{version} | step {step_no}: {step_name} | {molecule}', destination: none}
+- {id: keyword_prefix, label: Keyword line prefix, orca_text: '!', destination: none}
+- {id: keyword_slots, label: Keyword order, orca_text: 'job method dispersion basis aux ri relativistic scf grid solvent properties extras', destination: none}
+- {id: pal, label: Parallel block, orca_text: '%pal nprocs {nprocs} end', destination: none}
+- {id: maxcore, label: Memory per core (MB), orca_text: '%maxcore {maxcore}', destination: none}
+- {id: block_open, label: Block start, orca_text: '%{name}', destination: none}
+- {id: block_close, label: Block end, orca_text: end, destination: none}
+- {id: single_line_directives, label: Directives without end, orca_text: 'maxcore moinp base', destination: none}
+- {id: geometry_xyzfile, label: Geometry line, orca_text: '* xyzfile {charge} {mult} {xyzfile}', destination: none}
+- {id: geometry_inline, label: Inline geometry start, orca_text: '* {coord_type} {charge} {mult}', destination: none}
+- {id: geometry_inline_end, label: Inline geometry end, orca_text: '*', destination: none}
+- {id: moread_keyword, label: MORead keyword, orca_text: MORead, destination: none}
+- {id: moinp, label: Orbital file line, orca_text: '%moinp "{gbw}"', destination: none}
+- {id: keepdens_keyword, label: Keep densities keyword, orca_text: KeepDens, destination: none, notes: 'Auto-added when MEP/density cubes are requested'}

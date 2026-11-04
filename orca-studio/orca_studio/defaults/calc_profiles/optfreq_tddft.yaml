@@ -1,0 +1,14 @@
+name: Opt + Freq → TDDFT (B3LYP def2-SVP)
+description: Ground-state optimization and frequencies, then 10 TDDFT states.
+version: 1
+extraction_profile: standard
+columns:
+- {column: method}
+- {column: basis}
+- {column: dispersion}
+- {column: nroots}
+defaults: {method: b3lyp, basis: def2svp}
+resources: {nprocs: 2, maxcore: 1000}
+steps:
+- {name: Opt + Freq, slug: opt_freq, type: opt_freq, values: {dispersion: d3bj}}
+- {name: TDDFT, slug: tddft, type: tddft, values: {nroots: 10}}

@@ -1,0 +1,7 @@
+id: dispersion
+label: Dispersion
+entries:
+- {id: d3bj, label: D3BJ, orca_text: D3BJ, tags: ['exclusive:dispersion', is_dispersion]}
+- {id: d3zero, label: D3Zero, orca_text: D3ZERO, tags: ['exclusive:dispersion', is_dispersion]}
+- {id: d4, label: D4, orca_text: D4, tags: ['exclusive:dispersion', is_dispersion]}
+- {id: none, label: None, orca_text: '', destination: none}

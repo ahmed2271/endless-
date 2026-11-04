@@ -1,0 +1,11 @@
+# Text searched for in .out files by the success checks. orca_text is a regular expression
+# (case-insensitive). [VERIFY] items are confirmed by Settings -> ORCA checks.
+id: output_patterns
+label: Output messages (success checks)
+entries:
+- {id: normal_termination, label: Normal termination, orca_text: 'ORCA TERMINATED NORMALLY', destination: none}
+- {id: opt_converged, label: Optimization converged, orca_text: 'THE OPTIMIZATION HAS CONVERGED', destination: none, tags: [unverified], verify_candidates: ['THE OPTIMIZATION HAS CONVERGED', 'OPTIMIZATION RUN DONE']}
+- {id: opt_not_converged, label: Optimization not converged, orca_text: 'optimization did not converge|maximum number of optimization cycles', destination: none}
+- {id: scf_not_converged, label: SCF not converged, orca_text: 'SCF NOT CONVERGED|wavefunction IS NOT CONVERGED|SCF CONVERGENCE FAILED', destination: none}
+- {id: error_termination, label: Error termination, orca_text: 'ORCA finished by error termination|aborting the run|UNRECOGNIZED OR DUPLICATED KEYWORD', destination: none}
+- {id: unknown_keyword, label: Unknown keyword, orca_text: 'UNRECOGNIZED OR DUPLICATED KEYWORD|Unknown identifier|INPUT ERROR', destination: none}

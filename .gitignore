@@ -12,3 +12,5 @@
 *.apk
 *.aab
 __pycache__/
+.pytest_cache/
+orca-studio/.venv/
