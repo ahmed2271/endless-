@@ -136,7 +136,7 @@ const Batch = {
     else if (tab === "log") Batch.log(body, b);
     else if (tab === "files") Batch.files(body, b.folder);
     else if (tab === "settings") Batch.settings(body, b);
-    else if (window.Results) Results.tab(body, b, tab);
+    else if (typeof Results !== "undefined") Results.tab(body, b, tab);
   },
 
   molecules(root, b, refresh) {
@@ -241,7 +241,7 @@ const Batch = {
     const right = h("div");
     main.append(h("div", {class: "cols"}, left, right));
     Viewer.show(vbox, await App.get(`/api/molecules/${mid}/xyz`));
-    if (window.Visuals) Visuals.panel(visuals, b, m, vbox);
+    if (typeof Visuals !== "undefined") Visuals.panel(visuals, b, m, vbox);
     for (const [k, s] of b.steps.entries()) {
       const t = m.tasks[k];
       const card = h("div", {class: "card"});

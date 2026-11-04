@@ -15,7 +15,7 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 | Phase | State | Acceptance test |
 |---|---|---|
 | 1 Core runner | done | passed with stand-in ORCA (tests/test_runner.py, tests/test_restart.py) |
-| 2 Extraction | not started | |
+| 2 Extraction | done | parser tests pass on ORCA-6-style files (stand-in); real-file invariant tests wait for tests/data/real |
 | 3 Robustness | not started | |
 | 4 Visuals | not started | |
 | 5 Advanced | not started | |
@@ -32,6 +32,16 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 - ORCA checks runner (Appendix D, all 9 checks) in Settings → ORCA checks; updates libraries itself.
 - Tested: pytest tests/test_runner.py tests/test_restart.py tests/test_verify.py (all pass);
   Playwright walk through Settings, Libraries, Profiles, new batch, upload, validate: no JS errors.
+
+- Phase 2 built: 70 built-in fields (Appendix C groups), custom pattern fields with a tester that
+  highlights the matched line, formulas (rel, relsame, ref, boltzmann, fragsum, atomval; composition
+  check), units, automatic + custom flag rules, results table with sorting/filtering/sub-tables,
+  CSV / Excel (one sheet per table) / geometries zip / SI file / .pqr / .mol2 exports, optional
+  automatic re-export, extraction on finished batches and on any folder of .out files (Analyze a
+  folder), extraction requirements with one-click "add keyword to the profile" fixes.
+- Tested: tests/test_parsers.py, tests/test_extraction.py (all pass). On the workstation, after the
+  acceptance run: `python tests/collect_real_outputs.py <batch folder>` then pytest runs invariant
+  tests on the real files.
 
 ## Open problems
 

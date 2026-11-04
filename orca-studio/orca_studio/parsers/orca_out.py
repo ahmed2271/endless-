@@ -469,7 +469,7 @@ class OrcaOut:
         cur, cur_state = None, None
         for ln in self.lines:
             h = hdr.search(ln)
-            if h and "STATE" not in ln:
+            if h and not ln.lstrip().startswith("STATE"):
                 kind = (h.group(1) or "STATES").upper()
                 cur = []
                 blocks[kind] = cur

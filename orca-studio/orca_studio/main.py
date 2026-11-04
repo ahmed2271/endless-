@@ -540,23 +540,24 @@ def api_batch_run(bid: int, data: dict = Body(default={})):
     return {"ok": True}
 
 
-@app.post("/api/batches/{bid}/{action}")
-def api_batch_action(bid: int, action: str):
+def _batch_action(bid: int, action: str):
     if not batches.get(bid):
         err("batch not found", 404)
-    if action == "pause":
-        RUNNER.pause(bid)
-    elif action == "resume":
-        RUNNER.resume(bid)
-    elif action == "cancel":
-        RUNNER.cancel(bid)
-    elif action == "retry":
+    if action == "retry":
         return {"ok": True, "retried": RUNNER.retry_failed(bid)}
-    elif action == "continue":
-        RUNNER.continue_review(bid)
-    else:
-        err("unknown action", 404)
+    {"pause": RUNNER.pause, "resume": RUNNER.resume, "cancel": RUNNER.cancel,
+     "continue": RUNNER.continue_review}[action](bid)
     return {"ok": True}
+
+
+def _make_action(action: str):
+    def endpoint(bid: int):
+        return _batch_action(bid, action)
+    return endpoint
+
+
+for _action in ("pause", "resume", "cancel", "retry", "continue"):
+    app.add_api_route(f"/api/batches/{{bid}}/{_action}", _make_action(_action), methods=["POST"], name=f"batch_{_action}")
 
 
 @app.get("/api/batches/{bid}/log")
