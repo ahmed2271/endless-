@@ -88,7 +88,7 @@ const Prof = {
         h("div", {class: "row"}, h("div", {class: "grow"}, nameInp), verSel),
         h("div", {class: "row", style: {marginTop: "8px"}}, h("div", {class: "grow"}, descInp)),
         h("div", {class: "row", style: {marginTop: "8px", alignItems: "flex-end"}},
-          h("label", {class: "f"}, "Extraction profile (default for batches)", epSel), res("nprocs", "Cores per job"), res("maxcore", "Memory per core (MB)"),
+          h("label", {class: "f", title: "Optional: fields that combine several steps (formulas). Each step chooses its own extraction profile in its step settings below."}, "Extra fields across steps (optional)", epSel), res("nprocs", "Cores per job"), res("maxcore", "Memory per core (MB)"),
           h("span", {class: "spacer"}),
           h("button", {class: "danger", onclick: () => Prof.remove(id, p.name)}, "Delete"),
           h("button", {onclick: validateNow}, "Validate"), saveVerBtn, saveBtn)),
@@ -296,6 +296,14 @@ const Prof = {
             h("div", {class: "lbl"}, "Name"), inp(s, "name", {oninput: () => drawTable()}),
             h("div", {class: "lbl"}, "Folder name"), inp(s, "slug", {placeholder: "from the name"}),
             h("div", {class: "lbl"}, "Step type"), typeSel,
+            h("div", {class: "lbl"}, "Extraction profile"), (() => {
+              const def = stype.default_extraction || {xtb: "step_opt", opt: "step_opt", opt_freq: "step_optfreq", freq: "step_optfreq", sp: "step_sp", tddft: "step_tddft", dscf: "step_dscf"}[stype.kind] || "step_sp";
+              const defName = (C.eps.find(e => e.id === def) || {}).name || def;
+              const cur = s.extraction_profile === undefined || s.extraction_profile === null ? "__default__" : s.extraction_profile;
+              return h("div", {class: "row"}, W.select([{value: "__default__", label: `Default for ${stype.label || "this step"}: ${defName}`}, {value: "", label: "(nothing from this step)"},
+                ...C.eps.map(e => ({value: e.id, label: e.name || e.id}))], cur, v => { if (v === "__default__") delete s.extraction_profile; else s.extraction_profile = v; dirty(); }),
+                h("a", {class: "small", href: `#/extraction/${cur === "__default__" ? def : cur || def}`}, "edit"));
+            })(),
             h("div", {class: "lbl"}, "Extra keywords"), inp(s, "extra_keywords", {placeholder: "added to the ! line"}),
             h("div", {class: "lbl"}, "Extra blocks"), inp(s, "extra_blocks", {rows: 4, placeholder: "%scf\n  MaxIter 300\nend"})),
           h("h3", null, "Manual override"), manualBox,

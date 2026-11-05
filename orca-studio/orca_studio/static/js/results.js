@@ -25,11 +25,30 @@ const Results = {
     const main = h("div");
     const sub = h("div");
     body.append(bar, main, sub);
-    const epSel = W.select(eps.map(e => ({value: e.id, label: e.name || e.id})), b.extraction_profile_id || "standard", async v => {
-      res = await App.post(`/api/batches/${b.id}/extract`, {extraction_profile_id: v}); b.extraction_profile_id = v; draw();
-    });
+    // what is read from each step
+    const setupBox = h("div", {class: "card"});
+    body.insertBefore(setupBox, bar);
+    const setup = await App.get(`/api/batches/${b.id}/extraction_setup`);
+    const epOpts = (first) => [first, ...eps.map(e => ({value: e.id, label: e.name || e.id}))];
+    const apply = async (payload) => { res = await App.post(`/api/batches/${b.id}/extract`, payload); draw(); App.toast("Results updated"); };
+    if (setup.external) {
+      setupBox.append(h("div", {class: "row"}, h("b", null, "Extraction profile"),
+        W.select(eps.map(e => ({value: e.id, label: e.name || e.id})), setup.extra || "standard", v => apply({extraction_profile_id: v})),
+        h("a", {href: "#/extraction", class: "small"}, "edit extraction profiles")));
+    } else {
+      const choice = {};
+      setup.steps.forEach(st_ => choice[st_.index] = st_.profile);
+      setupBox.append(h("div", {class: "row"}, h("b", null, "What is read from each step"), h("span", {class: "spacer"}),
+          h("a", {href: "#/extraction", class: "small"}, "edit extraction profiles")),
+        h("div", {class: "form-grid", style: {gridTemplateColumns: "minmax(160px, max-content) minmax(260px, 420px)", marginTop: "8px"}},
+          setup.steps.flatMap(st_ => [h("div", {class: "lbl"}, `Step ${st_.index + 1}: ${st_.name}`),
+            W.select(epOpts({value: "", label: "(nothing)"}), st_.profile, v => { choice[st_.index] = v; apply({step_extraction: choice}); })]),
+          h("div", {class: "lbl muted"}, "Extra fields across steps"),
+          W.select(epOpts({value: "", label: "(none)"}), setup.extra, v => apply({extraction_profile_id: v}))),
+        h("p", {class: "help", style: {marginBottom: 0}}, "Each step uses its own extraction profile (set per step in the calculation profile; changing it here affects only this batch). The optional extra profile is for formulas that combine steps."));
+    }
     const exp = (kind) => W.download(`/api/batches/${b.id}/export/${kind}`);
-    bar.append(h("span", {class: "small muted"}, "Extraction profile"), epSel,
+    bar.append(
       h("button", {onclick: async () => { res = await App.post(`/api/batches/${b.id}/extract`, {}); App.toast("Extraction done"); draw(); }}, "Re-extract"),
       h("input", {placeholder: "Filter molecules…", oninput: e => { st.filter = e.target.value.toLowerCase(); draw(); }}),
       h("span", {class: "spacer"}),

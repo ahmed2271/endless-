@@ -1,7 +1,7 @@
 name: Pre-opt → Opt + Freq (B3LYP D3BJ def2-SVP)
 description: GFN2-xTB pre-optimization, then B3LYP-D3(BJ)/def2-SVP optimization and frequencies.
-version: 2
-extraction_profile: standard
+version: 3
+extraction_profile: ''
 columns:
 - {column: method}
 - {column: basis}

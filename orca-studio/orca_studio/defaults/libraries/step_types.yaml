@@ -1,23 +1,25 @@
 # Step types. orca_text = job keyword(s) put first on the "!" line.
 # kind drives the success checks: xtb, opt, opt_freq, freq, sp, tddft, dscf, custom.
 # default_values = cell values filled in when a step of this type is added to a profile.
+# default_extraction = extraction profile used for this step unless another one is chosen.
 id: step_types
 label: Step types
 entries:
-- {id: xtb_preopt, label: XTB pre-opt, orca_text: Opt, kind: xtb, default_values: {method: xtb2, opt_convergence: looseopt}, tags: ['requires:xtb']}
-- {id: opt, label: Opt, orca_text: Opt, kind: opt}
-- {id: opt_freq, label: Opt + Freq, orca_text: Opt Freq, kind: opt_freq}
-- {id: freq, label: Freq, orca_text: Freq, kind: freq}
-- {id: sp, label: Single point, orca_text: '', kind: sp}
-- {id: tddft, label: TDDFT, orca_text: '', kind: tddft, default_values: {nroots: 10}}
-- {id: tddft_opt, label: TDDFT Opt (excited state), orca_text: Opt, kind: opt, default_values: {nroots: 5, iroot: 1}, notes: 'Emission: ground Opt+Freq -> TDDFT Opt with IRoot 1 -> TDDFT single point'}
+- {id: xtb_preopt, label: XTB pre-opt, orca_text: Opt, kind: xtb, default_values: {method: xtb2, opt_convergence: looseopt}, tags: ['requires:xtb'], default_extraction: step_opt}
+- {id: opt, label: Opt, orca_text: Opt, kind: opt, default_extraction: step_opt}
+- {id: opt_freq, label: Opt + Freq, orca_text: Opt Freq, kind: opt_freq, default_extraction: step_optfreq}
+- {id: freq, label: Freq, orca_text: Freq, kind: freq, default_extraction: step_optfreq}
+- {id: sp, label: Single point, orca_text: '', kind: sp, default_extraction: step_sp}
+- {id: tddft, label: TDDFT, orca_text: '', kind: tddft, default_values: {nroots: 10}, default_extraction: step_tddft}
+- {id: tddft_opt, label: TDDFT Opt (excited state), orca_text: Opt, kind: opt, default_values: {nroots: 5, iroot: 1}, notes: 'Emission: ground Opt+Freq -> TDDFT Opt with IRoot 1 -> TDDFT single point', default_extraction: step_tddft}
 - id: dscf
   label: ΔSCF
   orca_text: ''
   kind: dscf
+  default_extraction: step_dscf
   notes: 'Runs linked sub-jobs per molecule: ground-state SP (gs), excited state (es), optional triplet (t). [VERIFY ΔSCF syntax on 6.0.1]'
   subjobs:
   - {id: gs, label: Ground state}
   - {id: es, label: Excited state, moread_from: gs, force_mult: 1}
   - {id: t, label: Triplet (spin purification), force_mult: 3, only_if_column: dscf_triplet}
-- {id: custom, label: Custom, orca_text: '', kind: custom}
+- {id: custom, label: Custom, orca_text: '', kind: custom, default_extraction: step_sp}

@@ -8,7 +8,7 @@ App.register("extraction", async (main, id) => {
       const name = await App.prompt("New extraction profile", "Name"); if (!name) return;
       const r = await App.post("/api/items/extraction_profiles", {name, fields: []}); location.hash = `#/extraction/${r.id}`;
     }}, "+ New profile")));
-  main.append(h("p", {class: "help"}, "An extraction profile is a list of fields; each field becomes a column (or a sub-table) in a batch's results."));
+  main.append(h("p", {class: "help"}, "An extraction profile lists what to read from one calculation step: each field becomes a column (or a sub-table) in a batch's results. Every step type has a default (Optimization, Opt + Freq, Single point, Excited states, ΔSCF); choose another one per step in the calculation profile, or per batch in its Results tab."));
   const list = await App.get("/api/items/extraction_profiles");
   main.append(h("div", {class: "card", style: {padding: 0}}, h("table", null, h("tr", null, ["Name", "Fields", ""].map(x => h("th", null, x))),
     list.map(p => h("tr", {class: "clickable", onclick: () => location.hash = `#/extraction/${p.id}`},
@@ -70,7 +70,7 @@ const Ext = {
   steps: [],       // steps of the calculation profile chosen in the editor
   types: [],       // step types from the library
   sourceOptions(src) {
-    const opts = [{value: JSON.stringify({mode: "last"}), label: "Last step"}];
+    const opts = [{value: JSON.stringify({mode: "last"}), label: "This step (the step the profile is used for)"}];
     Ext.steps.forEach((s, i) => opts.push({value: JSON.stringify({mode: "step_name", value: s.name}), label: `Step ${i + 1}: ${s.name}`}));
     for (const t of Ext.types) opts.push({value: JSON.stringify({mode: "last_of_type", value: t.id}), label: `Last ${t.label} step (any profile)`});
     const cur = JSON.stringify(src && src.mode ? (src.mode === "last" ? {mode: "last"} : {mode: src.mode, value: src.value}) : {mode: "last"});
@@ -83,7 +83,7 @@ const Ext = {
   },
   srcLabel(s) {
     s = s || {mode: "last"};
-    return {last: "last step", step_name: `step "${s.value}"`, last_of_type: `last ${s.value} step`, step_index: `step ${(+s.value) + 1}`}[s.mode] || s.mode;
+    return {last: "this step", step_name: `step "${s.value}"`, last_of_type: `last ${s.value} step`, step_index: `step ${(+s.value) + 1}`}[s.mode] || s.mode;
   },
 
   async editor(main, id) {
@@ -102,23 +102,100 @@ const Ext = {
       if (p.calc_profile) { try { Ext.steps = (await App.get(`/api/calc_profiles/${p.calc_profile}`)).steps || []; } catch (e) { /* deleted profile */ } }
     };
     await loadSteps();
-    const cpSel = W.select([{value: "", label: "(none: choose step types instead)"}, ...cps.map(c => ({value: c.id, label: c.name}))], p.calc_profile, async v => { p.calc_profile = v; await loadSteps(); draw(); });
+    const cpSel = W.select([{value: "", label: "(none)"}, ...cps.map(c => ({value: c.id, label: c.name}))], p.calc_profile, async v => { p.calc_profile = v; await loadSteps(); draw(); });
+    const save = async () => { await App.put(`/api/items/extraction_profiles/${id}`, p); App.toast("Saved"); };
+    const startBox = h("div");
     main.append(h("div", {class: "card"}, name, h("div", {style: {marginTop: "8px"}}, desc),
-        h("div", {class: "row", style: {marginTop: "10px"}}, h("label", {class: "f"}, "Take steps from calculation profile", cpSel),
-          h("span", {class: "small muted", style: {maxWidth: "620px"}}, "Each field reads one step of the calculation, e.g. energies and charges from the SP step and excited states from the TDDFT step. Choose the calculation profile here and its steps appear in the Source menus. (The batch still decides which extraction profile it uses.)"))),
+        h("p", {class: "help", style: {marginBottom: 0}}, "An extraction profile is the list of values to read from ", h("b", null, "one calculation step"),
+          " (one .out file), for example energy, HOMO/LUMO and charges from a single point, or the excited states from a TDDFT step. ",
+          "Choose it for a step in the calculation profile (step settings → Extraction profile) or per batch in the Results tab. ",
+          "Each field becomes a column (or a sub-table) in the results."),
+        h("details", {style: {marginTop: "8px"}}, h("summary", {class: "small"}, "Advanced: read some fields from another step"),
+          h("div", {class: "row", style: {marginTop: "6px"}}, h("label", {class: "f"}, "Show the steps of calculation profile", cpSel),
+            h("span", {class: "small muted", style: {maxWidth: "560px"}}, "Only needed for an 'extra fields across steps' profile, e.g. a formula that subtracts a TDDFT value from an SP value. The steps then appear in each field's Source menu.")))),
+      startBox,
       h("div", {class: "row", style: {margin: "8px 0"}},
-        h("button", {class: "primary", onclick: () => addForStep()}, "+ Fields for a step…"),
-        h("button", {onclick: () => edit(null, "builtin")}, "+ Built-in field"),
+        h("button", {class: "primary", onclick: () => chooseFields()}, "+ Choose fields…"),
+        h("button", {onclick: () => readySet()}, "+ Ready-made set…"),
         h("button", {onclick: () => edit(null, "pattern")}, "+ Custom pattern"),
         h("button", {onclick: () => edit(null, "formula")}, "+ Formula"),
+        h("button", {onclick: () => edit(null, "builtin")}, "+ Field with options (atoms, bonds…)"),
         h("button", {onclick: () => edit(null, "multiwfn")}, "+ Multiwfn result"),
-        h("button", {onclick: () => edit(null, "fukui")}, "+ Fukui functions"),
-        h("button", {onclick: () => edit(null, "dscf")}, "+ ΔSCF value"),
+        h("button", {onclick: () => edit(null, "fukui")}, "+ Fukui"),
+        h("button", {onclick: () => edit(null, "dscf")}, "+ ΔSCF"),
         h("span", {class: "spacer"}),
-        p.builtin ? h("span", {class: "small muted"}, "starter profile") : h("button", {class: "danger small", onclick: async () => { if (await App.confirm("Delete profile", `Delete "${p.name}"?`, "Delete", true)) { await App.del(`/api/items/extraction_profiles/${id}`); location.hash = "#/extraction"; } }}, "Delete profile"),
-        h("button", {class: "primary", onclick: async () => { await App.put(`/api/items/extraction_profiles/${id}`, p); App.toast("Saved"); }}, "Save")),
+        h("button", {class: "danger small", onclick: async () => { if (await App.confirm("Delete profile", `Delete "${p.name}"?`, "Delete", true)) { await App.del(`/api/items/extraction_profiles/${id}`); location.hash = "#/extraction"; } }}, "Delete profile"),
+        h("button", {class: "primary", onclick: save}, "Save")),
       tbl);
+
+    const READY = [["opt", "Optimization", "energy, convergence, cycles"], ["opt_freq", "Opt + Freq", "energy, G, H, ZPE, imaginary frequencies"],
+      ["sp", "Single point", "energy, HOMO, LUMO, gap, dipole, Hirshfeld and MBIS charges"], ["tddft", "TDDFT", "S1 (eV, nm, f), T1, brightest state, all states"]];
+    function addPreset(kind) {
+      let n = 0;
+      for (const [b, label, unit, params, on, fid] of (Ext.PRESETS[kind] || [])) {
+        if (on === false) continue;
+        const f = {kind: "builtin", builtin: b, name: label, source: {mode: "last"}, params: clone(params || {})};
+        if (unit) f.unit = unit;
+        if (b === "imag_count") f.params.threshold = 0;
+        let i0 = (fid || label).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") || "f";
+        let fidu = i0;
+        while (p.fields.some(x => x.id === fidu)) fidu += "_2";
+        f.id = fidu; p.fields.push(f); n++;
+      }
+      draw(); App.toast(`${n} fields added. Press Save to keep them.`);
+    }
+    async function readySet() {
+      await App.modal("Add a ready-made set of fields", h("div", {style: {display: "grid", gap: "6px"}}, READY.map(([k, label, what]) =>
+        h("button", {style: {textAlign: "left"}, onclick: () => { document.querySelector(".modal-bg").remove(); addPreset(k); }}, h("b", null, label), h("div", {class: "small muted"}, what)))),
+        [{label: "Cancel"}]);
+    }
+    async function chooseFields() {
+      // every simple field, grouped; charges listed per scheme
+      const SKIP = new Set(["bond_length", "angle", "dihedral", "charge_on", "spin_on", "orbital", "bond_order", "brightest", "brightest_fosc", "charges", "spin_populations", "scheme_spread", "bond_orders", "imag_count"]);
+      const items = [];
+      for (const b of Ext.builtins) if (!SKIP.has(b.id)) items.push({group: b.group, label: b.label + (b.shape === "table" ? " (table)" : ""), make: () => ({builtin: b.id, name: b.label})});
+      const add = (group, label, make) => items.push({group, label, make});
+      add("Thermochemistry", "Imaginary frequencies (count)", () => ({builtin: "imag_count", name: "Imaginary freq.", params: {threshold: 0}}));
+      for (const [sch, lab] of [["hirshfeld", "Hirshfeld"], ["mbis", "MBIS"], ["chelpg", "CHELPG"], ["resp", "RESP"], ["npa", "NPA (needs NBO)"], ["mulliken", "Mulliken"], ["loewdin", "Löwdin"]])
+        add("Charges", `${lab} charges (table)`, () => ({builtin: "charges", name: `${lab.replace(" (needs NBO)", "")} charges`, params: {scheme: sch}}));
+      add("Charges", "Hirshfeld spin populations (table)", () => ({builtin: "spin_populations", name: "Spin populations", params: {scheme: "hirshfeld"}}));
+      add("Charges", "Charge scheme comparison (flags atoms where schemes disagree)", () => ({builtin: "scheme_spread", name: "Scheme spread", params: {schemes: "hirshfeld mbis chelpg mulliken", threshold: 0.3}}));
+      add("Excited states", "Brightest state between 250 and 800 nm (nm)", () => ({builtin: "brightest", name: "Brightest state", unit: "nm", params: {nm_min: 250, nm_max: 800}}));
+      add("Excited states", "S1 wavelength (nm)", () => ({builtin: "s1_energy", name: "S1 wavelength", unit: "nm"}));
+      add("Electric properties", "Mayer bond orders (table)", () => ({builtin: "bond_orders", name: "Mayer bond orders", params: {scheme: "mayer"}}));
+      const order = ["Energies", "Orbitals and spin", "Charges", "Electric properties", "Excited states", "Thermochemistry", "Geometry", "Run info"];
+      const groups = {};
+      for (const it of items) (groups[it.group] = groups[it.group] || []).push(it);
+      const chosen = new Set();
+      const search = h("input", {placeholder: "Search…", style: {width: "100%"}});
+      const listBox = h("div", {style: {maxHeight: "55vh", overflow: "auto", marginTop: "8px"}});
+      const drawList = () => {
+        listBox.innerHTML = "";
+        const q = search.value.toLowerCase();
+        for (const g of [...order, ...Object.keys(groups).filter(x => !order.includes(x))]) {
+          const its = (groups[g] || []).filter(it => !q || it.label.toLowerCase().includes(q));
+          if (!its.length) continue;
+          listBox.append(h("h3", {style: {margin: "10px 0 4px"}}, g), ...its.map(it => h("label", {class: "row", style: {padding: "2px 0"}},
+            h("input", {type: "checkbox", checked: chosen.has(it), onchange: e => e.target.checked ? chosen.add(it) : chosen.delete(it)}), it.label)));
+        }
+      };
+      search.addEventListener("input", drawList); drawList();
+      const ok = await App.modal("Choose fields", h("div", null, h("p", {class: "help"}, "Tick everything you want to read from the step's output. Units and names can be changed afterwards (Edit)."), search, listBox),
+        [{label: "Cancel", value: false}, {label: "Add selected", class: "primary", value: true}], true);
+      if (!ok || !chosen.size) return;
+      for (const it of chosen) {
+        const f = Object.assign({kind: "builtin", source: {mode: "last"}, params: {}}, it.make());
+        let fid = f.name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") || "f";
+        while (p.fields.some(x => x.id === fid)) fid += "_2";
+        f.id = fid; p.fields.push(f);
+      }
+      draw(); App.toast(`${chosen.size} fields added. Press Save to keep them.`);
+    }
     const draw = () => {
+      startBox.innerHTML = "";
+      if (!p.fields.length) startBox.append(h("div", {class: "card", style: {background: "var(--accent-2)"}},
+        h("b", null, "How to start"), h("p", {class: "small", style: {margin: "4px 0 8px"}}, "Pick a ready-made set for the kind of step this profile is for, or tick fields from the full list:"),
+        h("div", {class: "row"}, READY.map(([k, label]) => h("button", {onclick: () => addPreset(k)}, label)), h("button", {class: "primary", onclick: () => chooseFields()}, "Choose fields from the list…"))));
       tbl.innerHTML = "";
       tbl.append(h("table", null, h("tr", null, ["", "Column name", "What", "Source", "Unit", "Flag", ""].map(x => h("th", null, x))),
         p.fields.map((f, i) => h("tr", null,
@@ -132,48 +209,6 @@ const Ext = {
           h("td", {class: "small"}, f.flag?.op ? `${f.flag.op} ${f.flag.value} → ${f.flag.color}` : ""),
           h("td", null, h("button", {class: "small", onclick: () => edit(i)}, "Edit"), h("button", {class: "small danger", onclick: () => { p.fields.splice(i, 1); draw(); }}, "✕"))))));
     };
-    async function addForStep() {
-      const choices = Ext.steps.length ? Ext.steps.map((st, i) => ({value: i, label: `Step ${i + 1}: ${st.name}`, step: st}))
-        : Ext.types.map((t, i) => ({value: i, label: t.label, type: t}));
-      let pick = 0;
-      const list = h("div", {style: {display: "grid", gap: "4px", marginTop: "8px"}});
-      let rows = [];
-      const fill = () => {
-        list.innerHTML = "";
-        const c = choices[pick];
-        const tid = c.step ? c.step.type : c.type.id;
-        const t = Ext.types.find(x => x.id === tid) || {kind: "custom"};
-        const kind = tid === "tddft_opt" ? "opt" : t.kind;
-        rows = (Ext.PRESETS[kind] || Ext.PRESETS.custom).map(([b, label, unit, params, on, fid]) => ({b, label, unit, params, on: on !== false, fid}));
-        if (!rows.length) list.append(h("p", {class: "muted small"}, "No suggestions for this step type: use + ΔSCF value or + Built-in field."));
-        for (const r of rows) list.append(h("label", {class: "row"}, h("input", {type: "checkbox", checked: r.on, onchange: e => r.on = e.target.checked}),
-          r.label + (r.unit ? ` (${r.unit})` : ""), h("span", {class: "small muted"}, (Ext.builtins.find(x => x.id === r.b) || {}).label || r.b)));
-      };
-      const suffix = h("input", {placeholder: "e.g. SP", style: {width: "140px"}});
-      const setSuffix = () => { const c = choices[pick]; suffix.value = c.step ? c.step.name : c.type.label; };
-      const sel = W.select(choices, 0, v => { pick = +v; setSuffix(); fill(); });
-      setSuffix(); fill();
-      const ok = await App.modal("Add fields for one step", h("div", null,
-        h("div", {class: "row"}, h("label", {class: "f"}, Ext.steps.length ? "Step" : "Step type", sel), h("label", {class: "f"}, "Added to the column names", suffix)),
-        Ext.steps.length ? null : h("p", {class: "small muted"}, "Tip: choose a calculation profile at the top to pick its actual steps."),
-        list), [{label: "Cancel", value: false}, {label: "Add fields", class: "primary", value: true}]);
-      if (!ok) return;
-      const c = choices[pick];
-      const source = c.step ? {mode: "step_name", value: c.step.name} : {mode: "last_of_type", value: c.type.id};
-      const tag = (suffix.value || "").trim();
-      const slug = tag.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
-      for (const r of rows.filter(x => x.on)) {
-        const f = {kind: "builtin", builtin: r.b, name: tag ? `${r.label} (${tag})` : r.label, source: clone(source), params: clone(r.params || {})};
-        if (r.unit) f.unit = r.unit;
-        if (r.b === "imag_count") f.params.threshold = 0;
-        let fid = ((r.fid || r.label).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") + (slug ? "_" + slug : "")) || "f";
-        while (p.fields.some(x => x.id === fid)) fid += "_2";
-        f.id = fid;
-        p.fields.push(f);
-      }
-      draw();
-      App.toast(`${rows.filter(x => x.on).length} fields added: press Save to keep them`);
-    }
     async function edit(i, kind) {
       const f = i === null ? {kind, name: "", source: {mode: "last"}, params: {}} : clone(p.fields[i]);
       const r = await Ext.fieldDialog(f, p);

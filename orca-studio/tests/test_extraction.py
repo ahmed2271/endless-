@@ -10,9 +10,12 @@ from conftest import DATA, wait_for
 
 
 def _run_batch(profile="preopt_optfreq_b3lyp", files=("water.xyz", "methanol.xyz", "formaldehyde.inp"), ep=None):
-    from orca_studio import batches
+    from orca_studio import batches, db
     from orca_studio.runner import Runner
     b = batches.create("ext", profile, None, ep)
+    if ep:   # test the whole-batch profile on its own: no per-step fields
+        n = len(b["profile"]["steps"])
+        db.ex("UPDATE batches SET options=? WHERE id=?", (db.j(dict(b["options"], step_extraction={str(k): "" for k in range(n)})), b["id"]))
     batches.add_molecules(b["id"], [(n, (DATA / "structures" / n).read_bytes()) for n in files])
     r = Runner()
     r.start()
@@ -26,7 +29,7 @@ def _run_batch(profile="preopt_optfreq_b3lyp", files=("water.xyz", "methanol.xyz
 
 def test_standard_profile_and_exports(studio):
     from orca_studio import exports, extraction
-    b = _run_batch()
+    b = _run_batch(ep="standard")
     res = extraction.results(b["id"])
     ids = [f["id"] for f in res["fields"]]
     assert {"E", "G", "nimag", "HOMO", "q_hirshfeld", "q_mbis"} <= set(ids)

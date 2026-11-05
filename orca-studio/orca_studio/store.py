@@ -132,7 +132,17 @@ def seed() -> None:
             user = read_yaml(dst) or {}
             ids = {e.get("id") for e in user.get("entries") or []}
             added = [e for e in shipped.get("entries") or [] if e.get("id") not in ids]
-            if added:
+            changed = bool(added)
+            # new keys of existing built-in entries (e.g. default_extraction) are filled in, never overwritten
+            ship_by = {e.get("id"): e for e in shipped.get("entries") or []}
+            for e in user.get("entries") or []:
+                se = ship_by.get(e.get("id"))
+                if se and e.get("builtin"):
+                    for k, v in se.items():
+                        if k not in e:
+                            e[k] = v
+                            changed = True
+            if changed:
                 user.setdefault("entries", []).extend(added)
                 write_yaml(dst, user)
         # other kinds: copy missing files

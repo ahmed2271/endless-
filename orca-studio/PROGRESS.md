@@ -116,6 +116,17 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
     density cubes at once. The route that works is remembered. ORCA checks test both routes.
   - Tests: tests/test_cube_routes.py, extra test in tests/test_verify.py. 33 passed.
 
+- Feedback round 5 (2026-11-05): extraction redesigned around steps. Each step has its own
+  extraction profile (default per step type via default_extraction in the step_types library; choose
+  another in the step settings of the calculation profile, or per batch in the Results tab "What is
+  read from each step" box). Fields are tied to their step and named after it; formulas inside a step
+  profile work on that step's values. The calculation-profile/batch-level profile is now optional
+  "extra fields across steps". New starter profiles: Optimization, Opt + Freq, Single point,
+  Excited states (TDDFT), ΔSCF. Editor: explanation, start panel, "Choose fields…" checklist (charges
+  per scheme), ready-made sets; cross-step sources moved under "Advanced". One-time migration clears
+  old whole-run starter choices on existing batches/profiles (they would duplicate every value).
+  Tests: tests/test_per_step_extraction.py rewritten, migration test. 35 passed.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

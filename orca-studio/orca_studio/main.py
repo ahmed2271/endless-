@@ -21,6 +21,7 @@ from .runner import RUNNER
 async def lifespan(app):
     store.seed()
     db.init()
+    migrate_step_extraction()
     try:
         mpi = tools.autofill_openmpi()
         if mpi:
@@ -32,6 +33,22 @@ async def lifespan(app):
         RUNNER.start()
     yield
     RUNNER.stop()
+
+
+OLD_WHOLE_RUN = ("standard", "tddft", "opt_sp_tddft")
+
+
+def migrate_step_extraction():
+    """Once: batches and calculation profiles that only used an old whole-run starter extraction
+    profile switch to per-step extraction (otherwise every value would appear twice)."""
+    if db.kv_get("migrated_step_extraction"):
+        return
+    n = db.ex("UPDATE batches SET extraction_profile_id=NULL WHERE kind='calc' AND extraction_profile_id IN (?,?,?)", OLD_WHOLE_RUN)
+    for p in store.list_items("calc_profiles"):
+        if p.get("extraction_profile") in OLD_WHOLE_RUN:
+            p["extraction_profile"] = ""
+            store.save_item("calc_profiles", p)
+    db.kv_set("migrated_step_extraction", True)
 
 
 app = FastAPI(title="ORCA Studio", version=__version__, lifespan=lifespan)
@@ -226,7 +243,7 @@ def new_profile(name: str) -> dict:
     s = config.load_settings()
     return {"name": name, "description": "", "columns": default_layout, "defaults": {},
             "resources": {"nprocs": s["resources"]["default_nprocs"], "maxcore": s["resources"]["default_maxcore"]},
-            "extraction_profile": "standard",
+            "extraction_profile": "",
             "steps": []}
 
 
@@ -330,7 +347,8 @@ def api_validate(data: dict = Body(...)):
     mols = None
     if data.get("batch_id"):
         mols = [batches.molecule_record(m) for m in batches.molecules(int(data["batch_id"]))]
-    ep = store.get_item("extraction_profiles", data.get("extraction_profile") or p.get("extraction_profile") or "")
+    from .extraction import compose_profile
+    ep = compose_profile(p, data.get("extraction_profile", p.get("extraction_profile")) or None)
     return validate.validate(p, mols, ep)
 
 
@@ -591,8 +609,8 @@ def api_molecule_xyz(mid: int, step: int | None = None):
 def api_batch_validate(bid: int):
     b = batches.get(bid)
     mols = [batches.molecule_record(m) for m in batches.molecules(bid)]
-    ep = store.get_item("extraction_profiles", b["extraction_profile_id"] or "") if b["extraction_profile_id"] else None
-    return validate.validate(b["profile"], mols, ep)
+    from .extraction import profile_for
+    return validate.validate(b["profile"], mols, profile_for(b))
 
 
 @app.post("/api/batches/{bid}/run")

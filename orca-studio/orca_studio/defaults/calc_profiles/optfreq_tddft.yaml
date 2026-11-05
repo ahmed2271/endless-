@@ -1,7 +1,7 @@
 name: Opt + Freq → TDDFT (B3LYP def2-SVP)
 description: Ground-state optimization and frequencies, then 10 TDDFT states.
-version: 2
-extraction_profile: standard
+version: 3
+extraction_profile: ''
 columns:
 - {column: method}
 - {column: basis}

@@ -128,7 +128,7 @@ const App = {
         h("span", null, "Cores ", h("b", null, `${s.cores_used} / ${s.cores_total}`)),
         h("span", null, "Running ", h("b", null, s.running)),
         h("span", null, "Queued ", h("b", null, s.queued)),
-        s.post_processing ? h("span", null, "Making cubes / scripts ", h("b", null, s.post_processing)) : null);
+        ...(s.post_processing ? [h("span", null, "Making cubes / scripts ", h("b", null, s.post_processing))] : []));
       const n = document.getElementById("bell-n");
       const prev = +(n.textContent || 0);
       n.textContent = s.notifications ? s.notifications : "";

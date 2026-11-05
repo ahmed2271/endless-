@@ -28,6 +28,22 @@ def units():
     return {k: list(v) for k, v in extraction.UNITS.items()}
 
 
+@router.get("/api/batches/{bid}/extraction_setup")
+def extraction_setup(bid: int):
+    """Which extraction profile each step uses, and the optional whole-batch profile."""
+    b = batches.get(bid)
+    if not b:
+        err("batch not found", 404)
+    if b["kind"] == "external":
+        return {"external": True, "extra": b.get("extraction_profile_id")}
+    ov = (b.get("options") or {}).get("step_extraction") or {}
+    ids = extraction.step_extraction_ids(b["profile"], ov)
+    steps = b["profile"].get("steps") or []
+    return {"external": False, "extra": b.get("extraction_profile_id") or "",
+            "steps": [{"index": k, "name": st.get("name"), "type": st.get("type"), "profile": ids[k],
+                       "chosen_here": str(k) in ov} for k, st in enumerate(steps)]}
+
+
 @router.get("/api/batches/{bid}/results")
 def batch_results(bid: int):
     if not batches.get(bid):
@@ -40,8 +56,12 @@ def batch_extract(bid: int, data: dict = Body(default={})):
     b = batches.get(bid)
     if not b:
         err("batch not found", 404)
-    if data.get("extraction_profile_id"):
-        db.ex("UPDATE batches SET extraction_profile_id=? WHERE id=?", (data["extraction_profile_id"], bid))
+    if "extraction_profile_id" in data:
+        db.ex("UPDATE batches SET extraction_profile_id=? WHERE id=?", (data["extraction_profile_id"] or None, bid))
+    if "step_extraction" in data:
+        opts = b.get("options") or {}
+        opts["step_extraction"] = {str(k): v for k, v in (data["step_extraction"] or {}).items()}
+        db.ex("UPDATE batches SET options=? WHERE id=?", (db.j(opts), bid))
     db.ex("DELETE FROM results WHERE batch_id=?", (bid,))
     extraction._parse_cached.cache_clear()
     return extraction.extract_batch(bid)

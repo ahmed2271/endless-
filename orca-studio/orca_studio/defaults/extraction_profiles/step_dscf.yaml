@@ -1,0 +1,10 @@
+name: ΔSCF
+description: For ΔSCF steps - excitation energy (eV, nm), spin-purified value, ⟨S²⟩, collapse check.
+use_for: step
+version: 1
+fields:
+- {id: dE, name: ΔE, kind: dscf, params: {value: de}, unit_kind: excitation, unit: eV, decimals: 3}
+- {id: dE_nm, name: ΔE wavelength, kind: dscf, params: {value: de}, unit_kind: excitation, unit: nm, decimals: 1}
+- {id: pure, name: Spin-purified ΔE, kind: dscf, params: {value: pure}, unit_kind: excitation, unit: eV, decimals: 3}
+- {id: s2, name: ⟨S²⟩ excited, kind: dscf, params: {value: s2}, decimals: 3}
+- {id: collapse, name: Collapsed, kind: dscf, params: {value: collapse}}

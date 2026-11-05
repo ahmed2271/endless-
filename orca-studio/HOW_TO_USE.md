@@ -126,20 +126,26 @@ scheme (CHELPG, RESP, NPA, Mulliken, Löwdin) in a *charges* field if you need i
   V_min / V_max and the nearest atom), atoms coloured by charge, and *Add CHELPG charges afterwards*.
   Cubes are made from the saved `.gbw`, so you can add orbitals later without rerunning anything.
 
-**Extraction profiles** decide what goes into the Results tab. Every field reads **one step** of the
-calculation. At the top of the extraction profile, choose the calculation profile it belongs to: its
-steps then appear in each field's *Source* menu (for example *Step 2: SP* for energies and charges,
-*Step 3: TDDFT* for excited states). **+ Fields for a step…** adds a ready set of fields for one step
-in one go (Opt: energy, convergence; Opt + Freq: G, H, ZPE, imaginary frequencies; SP: energy, HOMO,
-LUMO, gap, dipole, Hirshfeld and MBIS charges; TDDFT: S1, T1, brightest state, all states). The Results
-table groups the columns under the step they come from. A ready-made pair, the calculation profile
-**Opt → SP → TDDFT** and the extraction profile of the same name, shows how it fits together. Add built-in fields (Appendix C of
-the specification), **custom patterns** (search text, which occurrence, which number; press
-*Test on a sample .out* to see the matched line highlighted), **formulas** (`rel(G)`,
-`boltzmann(G, 298.15)`, `fragsum(q, 'donor')`, `E_sp + Gcorr`, …), Fukui functions, ΔSCF values
-and Multiwfn results. Choose the source step and the unit (Eh, kcal/mol, kJ/mol, eV, cm⁻¹, nm).
-If a field needs something the calculation does not do (for example MBIS charges), validation tells
-you and offers a button that adds it to the profile.
+**Extraction profiles** decide what goes into the Results tab. An extraction profile is the list
+of values read from **one step** (one `.out` file). Every step type has a default: *Optimization*,
+*Opt + Freq (thermochemistry)*, *Single point (energy, orbitals, Hirshfeld and MBIS charges)*,
+*Excited states (TDDFT)* and *ΔSCF*. So an Opt → SP → TDDFT batch automatically gets the optimization
+check from Opt, energy/orbitals/charges from SP and the excited states from TDDFT, with the columns
+grouped by step.
+
+- To use another profile for a step: in the calculation profile, click the step and choose
+  *Extraction profile* in its settings; or, for one batch, in the **What is read from each step** box
+  at the top of its Results tab (the results update at once).
+- To make your own: **Extraction profiles → + New profile**, then pick a ready-made set (Optimization,
+  Opt + Freq, Single point, TDDFT) or press **Choose fields from the list…** and tick what you want
+  (energies, HOMO/LUMO, Hirshfeld / MBIS / CHELPG charges, excited states, thermochemistry, …). Press
+  **Save**. Fields can be renamed and their units changed with *Edit*.
+- Also available: **custom patterns** (search text, which occurrence, which number; *Test on a sample
+  .out* highlights the matched line), **formulas** (`rel(G)`, `boltzmann(G, 298.15)`, …), fields with
+  options (bond lengths, charge on chosen atoms or fragments), Fukui functions, ΔSCF values and
+  Multiwfn results.
+- *Extra fields across steps* (optional, in the calculation profile and the Results tab) adds a
+  profile whose formulas combine steps, e.g. a TDDFT energy minus an SP energy.
 
 **Analyze a folder** (left menu) runs an extraction profile on any folder of old `.out` files.
 

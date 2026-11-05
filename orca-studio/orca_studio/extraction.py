@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import math
 import time
 from functools import lru_cache
@@ -687,13 +688,83 @@ def flag_for(f: dict, v, err) -> list[str]:
 
 
 # --------------------------------------------------------------------------- batch level
+KIND_DEFAULT_EXTRACTION = {"xtb": "step_opt", "opt": "step_opt", "opt_freq": "step_optfreq", "freq": "step_optfreq",
+                           "sp": "step_sp", "tddft": "step_tddft", "dscf": "step_dscf", "custom": "step_sp"}
+
+
+def step_extraction_ids(calc_profile: dict, overrides: dict | None = None) -> list[str]:
+    """Extraction profile id for every step: batch choice → step setting → step type default."""
+    from .assemble import Catalog
+    cat = Catalog()
+    out = []
+    for k, st in enumerate(calc_profile.get("steps") or []):
+        ov = (overrides or {}).get(str(k), (overrides or {}).get(k))
+        if ov is not None:
+            out.append(ov)
+            continue
+        if st.get("extraction_profile") is not None:
+            out.append(st["extraction_profile"])
+            continue
+        t = cat.step_type(st.get("type"))
+        out.append(t.get("default_extraction") or KIND_DEFAULT_EXTRACTION.get(t.get("kind"), "step_sp"))
+    return out
+
+
+def _rewrite_formula(expr: str, mapping: dict) -> str:
+    import re
+    return re.sub(r"\b[A-Za-z_][A-Za-z0-9_]*\b", lambda m: mapping.get(m.group(0), m.group(0)), expr or "")
+
+
+def compose_profile(calc_profile: dict, extra_id: str | None, overrides: dict | None = None) -> dict:
+    """One field list for a batch: each step's own extraction profile (fields tied to that step and
+    named after it) followed by the optional whole-batch profile (fields across steps)."""
+    steps = calc_profile.get("steps") or []
+    fields, names = [], []
+    for k, eid in enumerate(step_extraction_ids(calc_profile, overrides)):
+        ep = store.get_item("extraction_profiles", eid) if eid else None
+        if not ep:
+            continue
+        names.append(ep.get("name") or eid)
+        sname = steps[k].get("name") or steps[k].get("type") or f"step {k + 1}"
+        tag = f"s{k + 1}"
+        own = [f for f in ep.get("fields") or []]
+        mapping = {f.get("id") or f"f{i + 1}": f"{f.get('id') or f'f{i + 1}'}_{tag}" for i, f in enumerate(own)}
+        for i, f in enumerate(own):
+            g = copy.deepcopy(f)
+            g["id"] = mapping[f.get("id") or f"f{i + 1}"]
+            g["name"] = f"{f.get('name') or f.get('id')} ({sname})"
+            g.setdefault("kind", "builtin")
+            if g["kind"] == "formula":
+                g["expr"] = _rewrite_formula(g.get("expr", ""), mapping)
+            elif g["kind"] != "fukui":
+                g["source"] = {"mode": "step_index", "value": k}
+            g["step_profile"] = eid
+            g["step_index"] = k
+            fields.append(g)
+    extra = store.get_item("extraction_profiles", extra_id) if extra_id else None
+    if extra:
+        names.append(extra.get("name") or extra_id)
+        for i, f in enumerate(extra.get("fields") or []):
+            g = copy.deepcopy(f)
+            g.setdefault("id", f"f{i + 1}")
+            g.setdefault("kind", "builtin")
+            while any(x["id"] == g["id"] for x in fields):
+                g["id"] += "_x"
+            fields.append(g)
+    return {"id": extra_id or "per_step", "name": " + ".join(dict.fromkeys(names)) or "nothing selected", "fields": fields}
+
+
 def profile_for(b: dict) -> dict:
-    eid = b.get("extraction_profile_id") or "standard"
-    ep = store.get_item("extraction_profiles", eid) or store.get_item("extraction_profiles", "standard") or {"fields": []}
-    for i, f in enumerate(ep.get("fields") or []):
-        f.setdefault("id", f"f{i + 1}")
-        f.setdefault("kind", "builtin")
-    return ep
+    """The extraction fields of a batch (per-step profiles + optional whole-batch profile)."""
+    if b["kind"] == "external":
+        eid = b.get("extraction_profile_id") or "standard"
+        ep = store.get_item("extraction_profiles", eid) or store.get_item("extraction_profiles", "standard") or {"fields": []}
+        for i, f in enumerate(ep.get("fields") or []):
+            f.setdefault("id", f"f{i + 1}")
+            f.setdefault("kind", "builtin")
+        return ep
+    return compose_profile(b["profile"], b.get("extraction_profile_id") or None,
+                           (b.get("options") or {}).get("step_extraction"))
 
 
 def extract_batch(batch_id: int, molecule_ids: list[int] | None = None) -> dict:
@@ -775,8 +846,11 @@ def results(batch_id: int) -> dict:
     for f in fields:
         uk = field_unit_kind(f)
         unit = f.get("unit") or DEFAULT_UNIT.get(uk, "")
-        if f["kind"] in ("formula",):
-            src = "Formulas"
+        if f.get("step_index") is not None and b["kind"] != "external" and f["step_index"] < len(steps):
+            k = f["step_index"]
+            src = f"Step {k + 1}: {steps[k].get('name') or steps[k].get('type')}"
+        elif f["kind"] in ("formula",):
+            src = "Across steps"
         elif f["kind"] == "fukui":
             src = "Fukui"
         elif b["kind"] == "external":

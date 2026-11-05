@@ -1,7 +1,7 @@
 name: Opt → SP → TDDFT
 description: B3LYP-D3(BJ)/def2-SVP optimization, def2-TZVP single point with Hirshfeld and MBIS charges, then 10 TDDFT states.
-version: 1
-extraction_profile: opt_sp_tddft
+version: 2
+extraction_profile: ''
 columns:
 - {column: method}
 - {column: basis}

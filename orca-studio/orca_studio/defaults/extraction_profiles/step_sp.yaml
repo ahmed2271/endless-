@@ -1,0 +1,12 @@
+name: Single point (energy, orbitals, charges)
+description: For single points - energy, HOMO, LUMO, gap, dipole, Hirshfeld and MBIS charges.
+use_for: step
+version: 1
+fields:
+- {id: E, name: Energy, kind: builtin, builtin: final_energy, unit: Eh}
+- {id: HOMO, name: HOMO, kind: builtin, builtin: homo, unit: eV, decimals: 3}
+- {id: LUMO, name: LUMO, kind: builtin, builtin: lumo, unit: eV, decimals: 3}
+- {id: gap, name: Gap, kind: builtin, builtin: gap, unit: eV, decimals: 3}
+- {id: dipole, name: Dipole, kind: builtin, builtin: dipole, unit: Debye, decimals: 3}
+- {id: q_hirshfeld, name: Hirshfeld charges, kind: builtin, builtin: charges, params: {scheme: hirshfeld}}
+- {id: q_mbis, name: MBIS charges, kind: builtin, builtin: charges, params: {scheme: mbis}}

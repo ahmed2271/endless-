@@ -1,0 +1,12 @@
+name: Excited states (TDDFT)
+description: For TDDFT steps - S1 (eV, nm, f), T1, brightest state, table of all states.
+use_for: step
+version: 1
+fields:
+- {id: S1, name: S1, kind: builtin, builtin: s1_energy, unit: eV, decimals: 3}
+- {id: S1_nm, name: S1 wavelength, kind: builtin, builtin: s1_energy, unit: nm, decimals: 1}
+- {id: S1_f, name: S1 f, kind: builtin, builtin: s1_fosc, decimals: 4}
+- {id: T1, name: T1, kind: builtin, builtin: t1_energy, unit: eV, decimals: 3}
+- {id: bright_nm, name: Brightest state (250–800 nm), kind: builtin, builtin: brightest, params: {nm_min: 250, nm_max: 800}, unit: nm, decimals: 1}
+- {id: bright_f, name: Brightest f, kind: builtin, builtin: brightest_fosc, params: {nm_min: 250, nm_max: 800}, decimals: 4}
+- {id: states, name: Excited states, kind: builtin, builtin: excited_states}

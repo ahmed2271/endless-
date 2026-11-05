@@ -54,7 +54,7 @@ const Batch = {
     const r = await App.modal("New batch", h("div", {style: {display: "grid", gap: "10px"}},
       h("label", {class: "f"}, "Batch name", name),
       h("div", {class: "row"}, h("label", {class: "f grow"}, "Calculation profile", profSel), h("label", {class: "f"}, "Version", verSel)),
-      h("label", {class: "f"}, "Extraction profile (default from the calculation profile)", epSel),
+      h("label", {class: "f"}, "Extra fields across steps (optional; each step has its own extraction profile)", epSel),
       h("label", {class: "f"}, "Calculations folder", root), pathOut),
       [{label: "Cancel", value: null}, {label: "Create", class: "primary", onclick: async () => {
         if (!d.name.trim()) { App.toast("Give the batch a name", "error"); return false; }
