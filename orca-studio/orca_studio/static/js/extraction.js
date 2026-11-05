@@ -53,6 +53,34 @@ const Ext = {
     const ps = Object.entries(f.params || {}).map(([k, v]) => `${k}=${v}`).join(", ");
     return (b ? b.label : f.builtin) + (ps ? ` (${ps})` : "") + (b && b.shape === "table" ? "  [table]" : "");
   },
+  // suggested fields per step kind for "+ Fields for a step…"
+  PRESETS: {
+    xtb: [["final_energy", "Energy", "Eh"], ["opt_converged", "Opt converged"], ["opt_cycles", "Opt cycles"]],
+    opt: [["final_energy", "Energy", "Eh"], ["opt_converged", "Opt converged"], ["opt_cycles", "Opt cycles"], ["rmsd_start", "RMSD from start"]],
+    opt_freq: [["final_energy", "Energy", "Eh"], ["total_gibbs", "G", "Eh"], ["total_enthalpy", "H", "Eh"], ["zpe", "ZPE", "kcal/mol"],
+      ["gibbs_correction", "G − E", "kcal/mol"], ["imag_count", "Imaginary freq."], ["lowest_freq", "Lowest freq."], ["opt_converged", "Opt converged"]],
+    freq: [["final_energy", "Energy", "Eh"], ["total_gibbs", "G", "Eh"], ["zpe", "ZPE", "kcal/mol"], ["gibbs_correction", "G − E", "kcal/mol"], ["imag_count", "Imaginary freq."]],
+    sp: [["final_energy", "Energy", "Eh"], ["homo", "HOMO", "eV"], ["lumo", "LUMO", "eV"], ["gap", "Gap", "eV"], ["dipole", "Dipole", "Debye"],
+      ["charges", "Hirshfeld charges", null, {scheme: "hirshfeld"}], ["charges", "MBIS charges", null, {scheme: "mbis"}], ["s2", "⟨S²⟩", null, null, false]],
+    tddft: [["s1_energy", "S1", "eV"], ["s1_energy", "S1 wavelength", "nm", null, true, "S1_nm"], ["s1_fosc", "S1 f"], ["t1_energy", "T1", "eV", null, false],
+      ["brightest", "Brightest state", "nm", {nm_min: 250, nm_max: 800}], ["brightest_fosc", "Brightest f", null, {nm_min: 250, nm_max: 800}], ["excited_states", "Excited states"]],
+    dscf: [],
+    custom: [["final_energy", "Energy", "Eh"]],
+  },
+  steps: [],       // steps of the calculation profile chosen in the editor
+  types: [],       // step types from the library
+  sourceOptions(src) {
+    const opts = [{value: JSON.stringify({mode: "last"}), label: "Last step"}];
+    Ext.steps.forEach((s, i) => opts.push({value: JSON.stringify({mode: "step_name", value: s.name}), label: `Step ${i + 1}: ${s.name}`}));
+    for (const t of Ext.types) opts.push({value: JSON.stringify({mode: "last_of_type", value: t.id}), label: `Last ${t.label} step (any profile)`});
+    const cur = JSON.stringify(src && src.mode ? (src.mode === "last" ? {mode: "last"} : {mode: src.mode, value: src.value}) : {mode: "last"});
+    if (!opts.some(o => o.value === cur)) opts.push({value: cur, label: Ext.srcLabel(src) + (Ext.steps.length ? "  ⚠ not in this calculation profile" : "")});
+    return {opts, cur};
+  },
+  sourceSelect(f, onchange) {
+    const {opts, cur} = Ext.sourceOptions(f.source);
+    return W.select(opts, cur, v => { f.source = JSON.parse(v); if (onchange) onchange(); });
+  },
   srcLabel(s) {
     s = s || {mode: "last"};
     return {last: "last step", step_name: `step "${s.value}"`, last_of_type: `last ${s.value} step`, step_index: `step ${(+s.value) + 1}`}[s.mode] || s.mode;
@@ -66,8 +94,20 @@ const Ext = {
     const name = h("input", {value: p.name || "", style: {fontSize: "18px", fontWeight: 600, width: "100%"}, oninput: e => p.name = e.target.value});
     const desc = h("input", {value: p.description || "", placeholder: "Description", style: {width: "100%"}, oninput: e => p.description = e.target.value});
     const tbl = h("div", {class: "card", style: {padding: 0}});
-    main.append(h("div", {class: "card"}, name, h("div", {style: {marginTop: "8px"}}, desc)),
+    const [cps, libs] = await Promise.all([App.get("/api/calc_profiles"), App.get("/api/libraries/step_types")]);
+    Ext.types = libs.entries.filter(e => !e.hidden);
+    if (!p.calc_profile) p.calc_profile = (cps.find(c => c.extraction_profile === id) || {}).id || "";
+    const loadSteps = async () => {
+      Ext.steps = [];
+      if (p.calc_profile) { try { Ext.steps = (await App.get(`/api/calc_profiles/${p.calc_profile}`)).steps || []; } catch (e) { /* deleted profile */ } }
+    };
+    await loadSteps();
+    const cpSel = W.select([{value: "", label: "(none: choose step types instead)"}, ...cps.map(c => ({value: c.id, label: c.name}))], p.calc_profile, async v => { p.calc_profile = v; await loadSteps(); draw(); });
+    main.append(h("div", {class: "card"}, name, h("div", {style: {marginTop: "8px"}}, desc),
+        h("div", {class: "row", style: {marginTop: "10px"}}, h("label", {class: "f"}, "Take steps from calculation profile", cpSel),
+          h("span", {class: "small muted", style: {maxWidth: "620px"}}, "Each field reads one step of the calculation, e.g. energies and charges from the SP step and excited states from the TDDFT step. Choose the calculation profile here and its steps appear in the Source menus. (The batch still decides which extraction profile it uses.)"))),
       h("div", {class: "row", style: {margin: "8px 0"}},
+        h("button", {class: "primary", onclick: () => addForStep()}, "+ Fields for a step…"),
         h("button", {onclick: () => edit(null, "builtin")}, "+ Built-in field"),
         h("button", {onclick: () => edit(null, "pattern")}, "+ Custom pattern"),
         h("button", {onclick: () => edit(null, "formula")}, "+ Formula"),
@@ -87,11 +127,53 @@ const Ext = {
             h("button", {class: "small", onclick: () => { if (i < p.fields.length - 1) { [p.fields[i + 1], p.fields[i]] = [p.fields[i], p.fields[i + 1]]; draw(); } }}, "↓"))),
           h("td", null, h("b", null, f.name), h("div", {class: "small muted mono"}, f.id)),
           h("td", {class: "small"}, Ext.describe(f)),
-          h("td", {class: "small"}, f.kind === "formula" ? "—" : Ext.srcLabel(f.source)),
+          h("td", {class: "small"}, ["formula", "fukui"].includes(f.kind) ? "—" : Ext.sourceSelect(f)),
           h("td", {class: "small"}, f.unit || ""),
           h("td", {class: "small"}, f.flag?.op ? `${f.flag.op} ${f.flag.value} → ${f.flag.color}` : ""),
           h("td", null, h("button", {class: "small", onclick: () => edit(i)}, "Edit"), h("button", {class: "small danger", onclick: () => { p.fields.splice(i, 1); draw(); }}, "✕"))))));
     };
+    async function addForStep() {
+      const choices = Ext.steps.length ? Ext.steps.map((st, i) => ({value: i, label: `Step ${i + 1}: ${st.name}`, step: st}))
+        : Ext.types.map((t, i) => ({value: i, label: t.label, type: t}));
+      let pick = 0;
+      const list = h("div", {style: {display: "grid", gap: "4px", marginTop: "8px"}});
+      let rows = [];
+      const fill = () => {
+        list.innerHTML = "";
+        const c = choices[pick];
+        const tid = c.step ? c.step.type : c.type.id;
+        const t = Ext.types.find(x => x.id === tid) || {kind: "custom"};
+        const kind = tid === "tddft_opt" ? "opt" : t.kind;
+        rows = (Ext.PRESETS[kind] || Ext.PRESETS.custom).map(([b, label, unit, params, on, fid]) => ({b, label, unit, params, on: on !== false, fid}));
+        if (!rows.length) list.append(h("p", {class: "muted small"}, "No suggestions for this step type: use + ΔSCF value or + Built-in field."));
+        for (const r of rows) list.append(h("label", {class: "row"}, h("input", {type: "checkbox", checked: r.on, onchange: e => r.on = e.target.checked}),
+          r.label + (r.unit ? ` (${r.unit})` : ""), h("span", {class: "small muted"}, (Ext.builtins.find(x => x.id === r.b) || {}).label || r.b)));
+      };
+      const suffix = h("input", {placeholder: "e.g. SP", style: {width: "140px"}});
+      const setSuffix = () => { const c = choices[pick]; suffix.value = c.step ? c.step.name : c.type.label; };
+      const sel = W.select(choices, 0, v => { pick = +v; setSuffix(); fill(); });
+      setSuffix(); fill();
+      const ok = await App.modal("Add fields for one step", h("div", null,
+        h("div", {class: "row"}, h("label", {class: "f"}, Ext.steps.length ? "Step" : "Step type", sel), h("label", {class: "f"}, "Added to the column names", suffix)),
+        Ext.steps.length ? null : h("p", {class: "small muted"}, "Tip: choose a calculation profile at the top to pick its actual steps."),
+        list), [{label: "Cancel", value: false}, {label: "Add fields", class: "primary", value: true}]);
+      if (!ok) return;
+      const c = choices[pick];
+      const source = c.step ? {mode: "step_name", value: c.step.name} : {mode: "last_of_type", value: c.type.id};
+      const tag = (suffix.value || "").trim();
+      const slug = tag.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      for (const r of rows.filter(x => x.on)) {
+        const f = {kind: "builtin", builtin: r.b, name: tag ? `${r.label} (${tag})` : r.label, source: clone(source), params: clone(r.params || {})};
+        if (r.unit) f.unit = r.unit;
+        if (r.b === "imag_count") f.params.threshold = 0;
+        let fid = ((r.fid || r.label).replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") + (slug ? "_" + slug : "")) || "f";
+        while (p.fields.some(x => x.id === fid)) fid += "_2";
+        f.id = fid;
+        p.fields.push(f);
+      }
+      draw();
+      App.toast(`${rows.filter(x => x.on).length} fields added: press Save to keep them`);
+    }
     async function edit(i, kind) {
       const f = i === null ? {kind, name: "", source: {mode: "last"}, params: {}} : clone(p.fields[i]);
       const r = await Ext.fieldDialog(f, p);
@@ -197,15 +279,13 @@ const Ext = {
     };
     const nameInp = inp(f, "name");
     nameInp.addEventListener("input", () => f._auto = false);
-    const srcVal = h("input", {value: f.source.value ?? "", style: {width: "200px"}, oninput: e => f.source.value = e.target.value});
-    const srcBox = h("div", {class: "row"}, h("label", {class: "f"}, "Source step", W.select([{value: "last", label: "Last step"}, {value: "step_name", label: "Step by name"}, {value: "last_of_type", label: "Last step of type"}, {value: "step_index", label: "Step number (from 0)"}], f.source.mode, v => { f.source.mode = v; })),
-      h("label", {class: "f"}, "Step name / type id / number", srcVal));
+    const srcBox = h("div", {class: "row"}, h("label", {class: "f"}, "Source step (which calculation step this value is read from)", Ext.sourceSelect(f)));
     const flag = f.flag = f.flag || {};
     const flagBox = h("div", {class: "row"}, h("span", {class: "small"}, "Color the cell when the value is"),
       W.select(["", ">", "<", ">=", "<=", "==", "!=", "abs>"].map(x => ({value: x, label: x || "(no rule)"})), flag.op || "", v => flag.op = v),
       inp(flag, "value", {type: "number", step: "any", style: {width: "100px"}}),
       W.select(["red", "orange", "yellow", "blue"], flag.color || "yellow", v => flag.color = v));
-    body.append(h("label", {class: "f"}, "Column name", nameInp), kindBox, f.kind === "formula" ? null : srcBox, unitBox, flagBox);
+    body.append(h("label", {class: "f"}, "Column name", nameInp), kindBox, ["formula", "fukui"].includes(f.kind) ? null : srcBox, unitBox, flagBox);
     drawKind();
     const ok = await App.modal(`${{builtin: "Built-in", pattern: "Custom pattern", formula: "Formula", multiwfn: "Multiwfn", fukui: "Fukui", dscf: "ΔSCF"}[f.kind]} field`, body,
       [{label: "Cancel", value: false}, {label: "OK", class: "primary", value: true}], true);

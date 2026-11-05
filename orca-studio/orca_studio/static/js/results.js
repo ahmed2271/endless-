@@ -56,7 +56,14 @@ const Results = {
       }
       const th = (key, label, unit) => h("th", {style: {cursor: "pointer"}, onclick: () => { st.dir = st.sort === key ? -st.dir : 1; st.sort = key; draw(); }},
         label, unit ? h("div", {class: "small", style: {fontWeight: 400}}, unit) : null, st.sort === key ? (st.dir > 0 ? " ▲" : " ▼") : "");
-      main.append(h("div", {class: "card", style: {padding: 0, overflowX: "auto"}}, h("table", null,
+      // a header row that groups columns by the calculation step they come from
+      const groups = [];
+      for (const f of scal) { const g = groups[groups.length - 1]; if (g && g.src === f.source) g.n++; else groups.push({src: f.source, n: 1}); }
+      const groupRow = new Set(scal.map(f => f.source)).size > 1 ?
+        h("tr", null, h("th", {colspan: 2}, ""), groups.map(g => h("th", {colspan: g.n, style: {textAlign: "center", borderLeft: "2px solid var(--line)", color: "var(--text)"}}, g.src || ""))) : null;
+      const firstOfGroup = new Set(); let prev = null;
+      for (const f of scal) { if (f.source !== prev) firstOfGroup.add(f.id); prev = f.source; }
+      main.append(h("div", {class: "card", style: {padding: 0, overflowX: "auto"}}, h("table", null, groupRow,
         h("tr", null, th("name", "Molecule"), h("th", null, "Formula"), scal.map(f => th(f.id, f.name, f.unit))),
         rows.map(r => h("tr", null,
           h("td", null, h("a", {href: `#/batch/${b.id}/mol/${r.molecule_id}`}, r.name), r.status === "failed" ? h("span", {class: "pill st-failed", style: {marginLeft: "4px"}}, "failed") : null),
@@ -64,12 +71,13 @@ const Results = {
           scal.map(f => {
             const c = r.values[f.id] || {};
             const fl = (c.flags || []).filter(x => x !== "grey");
-            return h("td", {class: "num" + (fl.length ? " flag-" + fl[fl.length - 1] : ""), title: c.err || ""}, c.err && c.v == null ? h("span", {class: "muted small"}, c.err === "no output yet" ? "…" : "n/a") : Results.fmt(c.v, f));
+            return h("td", {class: "num" + (fl.length ? " flag-" + fl[fl.length - 1] : ""), title: c.err || "",
+              style: groupRow && firstOfGroup.has(f.id) ? {borderLeft: "2px solid var(--line)"} : null}, c.err && c.v == null ? h("span", {class: "muted small"}, c.err === "no output yet" ? "…" : "n/a") : Results.fmt(c.v, f));
           }))))));
       if (!res.rows.length) main.append(h("p", {class: "muted"}, "No molecules."));
       if (tabs.length) {
         if (!st.table || !tabs.find(t => t.id === st.table)) st.table = tabs[0].id;
-        sub.append(h("h2", null, "Sub-tables"), W.tabs(tabs.map(t => [t.id, t.name]), st.table, t => { st.table = t; draw(); }));
+        sub.append(h("h2", null, "Sub-tables"), W.tabs(tabs.map(t => [t.id, t.source && !t.name.includes("(") ? `${t.name} · ${t.source.replace(/^Step \d+: /, "")}` : t.name]), st.table, t => { st.table = t; draw(); }));
         const f = tabs.find(t => t.id === st.table);
         let data = res.tables[st.table] || [];
         if (st.filter) data = data.filter(x => x.molecule.toLowerCase().includes(st.filter));

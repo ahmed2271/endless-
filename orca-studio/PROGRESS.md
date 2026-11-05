@@ -99,6 +99,13 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
     .trash/upgraded and as the previous profile version); edited copies are never touched.
   - Tests: tests/test_upgrade.py; save-mode and delete tests updated. 30 passed.
 
+- Feedback round 3 (2026-11-05): per-step extraction made usable. The extraction editor takes its steps
+  from a chosen calculation profile; each field has a Source menu ("Step 2: SP", "Step 3: TDDFT", or
+  "Last <type> step"), editable inline in the field table; "+ Fields for a step…" adds suggested fields
+  for one step with the step name in the column names; Results groups columns by source step and
+  names the step on sub-table tabs. New starters: calculation + extraction profile "Opt → SP → TDDFT".
+  Test: tests/test_per_step_extraction.py.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

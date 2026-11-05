@@ -126,7 +126,14 @@ scheme (CHELPG, RESP, NPA, Mulliken, Löwdin) in a *charges* field if you need i
   V_min / V_max and the nearest atom), atoms coloured by charge, and *Add CHELPG charges afterwards*.
   Cubes are made from the saved `.gbw`, so you can add orbitals later without rerunning anything.
 
-**Extraction profiles** decide what goes into the Results tab. Add built-in fields (Appendix C of
+**Extraction profiles** decide what goes into the Results tab. Every field reads **one step** of the
+calculation. At the top of the extraction profile, choose the calculation profile it belongs to: its
+steps then appear in each field's *Source* menu (for example *Step 2: SP* for energies and charges,
+*Step 3: TDDFT* for excited states). **+ Fields for a step…** adds a ready set of fields for one step
+in one go (Opt: energy, convergence; Opt + Freq: G, H, ZPE, imaginary frequencies; SP: energy, HOMO,
+LUMO, gap, dipole, Hirshfeld and MBIS charges; TDDFT: S1, T1, brightest state, all states). The Results
+table groups the columns under the step they come from. A ready-made pair, the calculation profile
+**Opt → SP → TDDFT** and the extraction profile of the same name, shows how it fits together. Add built-in fields (Appendix C of
 the specification), **custom patterns** (search text, which occurrence, which number; press
 *Test on a sample .out* to see the matched line highlighted), **formulas** (`rel(G)`,
 `boltzmann(G, 298.15)`, `fragsum(q, 'donor')`, `E_sp + Gcorr`, …), Fukui functions, ΔSCF values

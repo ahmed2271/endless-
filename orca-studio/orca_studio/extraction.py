@@ -771,11 +771,21 @@ def results(batch_id: int) -> dict:
     s = config.load_settings()
     dec = int(s["folders"].get("decimals", 6))
     fl = []
+    steps = b["profile"].get("steps") or []
     for f in fields:
         uk = field_unit_kind(f)
         unit = f.get("unit") or DEFAULT_UNIT.get(uk, "")
+        if f["kind"] in ("formula",):
+            src = "Formulas"
+        elif f["kind"] == "fukui":
+            src = "Fukui"
+        elif b["kind"] == "external":
+            src = ""
+        else:
+            k = resolve_step(b["profile"], f.get("source") or ({"mode": "last_of_type", "value": "dscf"} if f["kind"] == "dscf" else None))
+            src = f"Step {k + 1}: {steps[k].get('name') or steps[k].get('type')}" if k is not None else "step not in this batch"
         fl.append({"id": f["id"], "name": f.get("name") or f["id"], "unit": unit, "unit_kind": uk,
-                   "shape": field_shape(f), "kind": f["kind"], "decimals": f.get("decimals", dec)})
+                   "shape": field_shape(f), "kind": f["kind"], "decimals": f.get("decimals", dec), "source": src})
     rows, tables = [], {x["id"]: [] for x in fl if x["shape"] == "table"}
     tasks = db.q("SELECT molecule_id, step_index, status FROM tasks WHERE batch_id=?", (batch_id,))
     tstat = {}
