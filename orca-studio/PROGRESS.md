@@ -136,6 +136,10 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   close on navigation. 36 passed. Root cause of the missing cubes on the workstation still unknown:
   waiting for the Diagnose output.
 
+- Feedback round 7 (2026-11-05): extraction profiles can be deleted (list and editor, starters
+  included; they stay deleted). Folder/file picker (Browse…) for Analyze a folder, the new-batch
+  folder and all program and folder paths in Settings (/api/browse lists folders on this computer).
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

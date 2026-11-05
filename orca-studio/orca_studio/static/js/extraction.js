@@ -26,7 +26,8 @@ App.register("extraction", async (main, id) => {
     list.map(p => h("tr", {class: "clickable", onclick: () => location.hash = `#/extraction/${p.id}`},
       h("td", null, h("b", null, p.name || p.id), h("div", {class: "small muted"}, p.description || "")),
       h("td", {class: "small"}, (p.fields || []).map(f => f.name).join(", ")),
-      h("td", null, h("button", {class: "small", onclick: async e => { e.stopPropagation(); const name = await App.prompt("Duplicate", "Name", (p.name || p.id) + " (copy)"); if (!name) return; const c = clone(p); delete c.id; delete c.builtin; c.name = name; const r = await App.post("/api/items/extraction_profiles", c); location.hash = `#/extraction/${r.id}`; }}, "Duplicate")))))));
+      h("td", null, h("button", {class: "small", onclick: async e => { e.stopPropagation(); const name = await App.prompt("Duplicate", "Name", (p.name || p.id) + " (copy)"); if (!name) return; const c = clone(p); delete c.id; delete c.builtin; c.name = name; const r = await App.post("/api/items/extraction_profiles", c); location.hash = `#/extraction/${r.id}`; }}, "Duplicate"),
+        h("button", {class: "small danger", onclick: async e => { e.stopPropagation(); if (await Ext.remove(p.id, p.name || p.id)) App.route(); }}, "Delete")))))));
 });
 
 App.register("analyze", async (main) => {
@@ -36,7 +37,7 @@ App.register("analyze", async (main) => {
   const d = {folder: "", extraction_profile_id: "standard", name: ""};
   const inp = (k, ph) => h("input", {placeholder: ph, style: {width: "100%"}, oninput: e => d[k] = e.target.value});
   main.append(h("div", {class: "card", style: {maxWidth: "760px"}}, h("div", {style: {display: "grid", gap: "10px"}},
-    h("label", {class: "f"}, "Folder on this computer", inp("folder", "/home/utopia/old_calculations/set1")),
+    h("label", {class: "f"}, "Folder on this computer", W.pathInput("", "dir", v => d.folder = v, {placeholder: "press Browse… or type a path"})),
     h("label", {class: "f"}, "Extraction profile", W.select(eps.map(e => ({value: e.id, label: e.name || e.id})), d.extraction_profile_id, v => d.extraction_profile_id = v)),
     h("label", {class: "f"}, "Name (optional)", inp("name", "defaults to the folder name")),
     h("div", null, h("button", {class: "primary", onclick: async () => {
@@ -46,6 +47,15 @@ App.register("analyze", async (main) => {
 });
 
 const Ext = {
+  async remove(id, name) {
+    const st = await App.get("/api/libraries/step_types");
+    const users = st.entries.filter(e => e.default_extraction === id).map(e => e.label);
+    const note = users.length ? ` It is the default for ${users.join(", ")} steps: those steps will read nothing until you choose another profile at the top of the Extraction profiles page.` : "";
+    if (!await App.confirm("Delete extraction profile", `Delete "${name}"?${note} Batches keep the values already extracted until you press Re-extract. The file is moved to the .trash folder.`, "Delete", true)) return false;
+    await App.del(`/api/items/extraction_profiles/${id}`);
+    App.toast(`Deleted "${name}"`);
+    return true;
+  },
   builtins: null, units: null,
   async load() {
     if (!Ext.builtins) [Ext.builtins, Ext.units] = await Promise.all([App.get("/api/extraction/builtins"), App.get("/api/extraction/units")]);
@@ -136,7 +146,7 @@ const Ext = {
         h("button", {onclick: () => edit(null, "fukui")}, "+ Fukui"),
         h("button", {onclick: () => edit(null, "dscf")}, "+ ΔSCF"),
         h("span", {class: "spacer"}),
-        h("button", {class: "danger small", onclick: async () => { if (await App.confirm("Delete profile", `Delete "${p.name}"?`, "Delete", true)) { await App.del(`/api/items/extraction_profiles/${id}`); location.hash = "#/extraction"; } }}, "Delete profile"),
+        h("button", {class: "danger small", onclick: async () => { if (await Ext.remove(id, p.name || id)) location.hash = "#/extraction"; }}, "Delete profile"),
         h("button", {class: "primary", onclick: save}, "Save")),
       tbl);
 

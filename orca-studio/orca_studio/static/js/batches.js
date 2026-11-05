@@ -46,7 +46,7 @@ const Batch = {
     verSel.onchange = () => d.version = +verSel.value;
     const profSel = W.select(profiles.map(p => ({value: p.id, label: p.name})), d.calc_profile_id, v => { d.calc_profile_id = v; fillVer(); });
     const epSel = W.select([{value: "", label: "(none)"}, ...eps.map(e => ({value: e.id, label: e.name || e.id}))], "", v => d.extraction_profile_id = v);
-    const root = h("input", {value: d.root, style: {width: "100%"}, oninput: e => { d.root = e.target.value; path(); }});
+    const root = W.pathInput(d.root, "dir", v => { d.root = v; path(); });
     const pathOut = h("div", {class: "small muted mono"});
     const path = () => pathOut.textContent = `Folder: ${d.root.replace(/\/$/, "")}/${(d.name || "…").replace(/[^A-Za-z0-9._+-]+/g, "_")}`;
     path();

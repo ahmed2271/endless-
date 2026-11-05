@@ -416,7 +416,8 @@ def api_item_new(kind: str, data: dict = Body(...)):
 @app.delete("/api/items/{kind}/{item_id}")
 def api_item_delete(kind: str, item_id: str):
     try:
-        store.delete_item(kind, item_id)
+        store.delete_item(kind, item_id, allow_builtin=kind in ("extraction_profiles", "step_templates", "scripts",
+                                                                "multiwfn_recipes"))
     except ValueError as e:
         err(str(e))
     return {"ok": True}
@@ -674,6 +675,31 @@ def _allowed(path: Path) -> bool:
     roots.append(config.studio_dir().resolve())
     roots.append(Path(config.load_settings()["folders"]["calculations_root"]).expanduser().resolve())
     return any(path == r or r in path.parents for r in roots)
+
+
+@app.get("/api/browse")
+def api_browse(path: str = "", files: bool = False, hidden: bool = False):
+    """Folder picker: sub-folders (and optionally files) of a folder on this computer."""
+    p = Path(path).expanduser() if path else Path.home()
+    while not p.is_dir() and p != p.parent:
+        p = p.parent
+    dirs, fls = [], []
+    try:
+        for c in sorted(p.iterdir(), key=lambda x: x.name.lower()):
+            if c.name.startswith(".") and not hidden:
+                continue
+            try:
+                if c.is_dir():
+                    dirs.append({"name": c.name, "path": str(c)})
+                elif files:
+                    fls.append({"name": c.name, "path": str(c), "exec": os.access(c, os.X_OK)})
+            except OSError:
+                continue
+    except PermissionError:
+        err(f"no permission to read {p}", 403)
+    n_out = sum(1 for _ in p.glob("*.out")) if p.is_dir() else 0
+    return {"path": str(p), "parent": str(p.parent) if p != p.parent else None, "home": str(Path.home()),
+            "dirs": dirs[:2000], "files": fls[:2000], "n_out": n_out}
 
 
 @app.get("/api/files")

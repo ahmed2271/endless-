@@ -217,6 +217,45 @@ const W = {
     });
     return dz;
   },
+  // Browse the workstation's disk. mode "dir" picks a folder, "file" picks a file.
+  async pickPath(start, mode = "dir", title) {
+    let cur = start || "";
+    let chosen = null;
+    const body = h("div");
+    const draw = async (path) => {
+      const r = await App.get(`/api/browse?path=${encodeURIComponent(path || "")}&files=${mode === "file" ? 1 : 0}`);
+      cur = r.path;
+      body.innerHTML = "";
+      const pathIn = h("input", {value: r.path, style: {width: "100%"}, onkeydown: e => { if (e.key === "Enter") draw(pathIn.value); }});
+      body.append(h("div", {class: "row", style: {flexWrap: "nowrap"}}, pathIn, h("button", {class: "small", onclick: () => draw(pathIn.value)}, "Go")),
+        h("div", {class: "row small", style: {margin: "6px 0"}},
+          r.parent ? h("button", {class: "small", onclick: () => draw(r.parent)}, "⬆ Up") : null,
+          h("button", {class: "small", onclick: () => draw(r.home)}, "🏠 Home"),
+          mode === "dir" && r.n_out ? h("span", {class: "muted"}, `${r.n_out} .out file(s) in this folder`) : null),
+        h("div", {style: {maxHeight: "50vh", overflow: "auto", border: "1px solid var(--line)", borderRadius: "6px", background: "#fff"}},
+          r.dirs.map(d => h("div", {class: "pick-row", style: {padding: "4px 10px", cursor: "pointer"}, ondblclick: () => draw(d.path),
+            onclick: () => draw(d.path)}, "📁 " + d.name)),
+          r.files.map(f => h("div", {class: "pick-row", style: {padding: "4px 10px", cursor: "pointer", fontWeight: f.exec ? 600 : 400},
+            onclick: () => { chosen = f.path; document.querySelector(".modal .actions button.primary")?.click(); }}, "📄 " + f.name)),
+          !r.dirs.length && !r.files.length ? h("div", {class: "muted small", style: {padding: "8px"}}, "(empty)") : null));
+    };
+    await draw(start);
+    const r = await App.modal(title || (mode === "dir" ? "Choose a folder" : "Choose a file"), body,
+      [{label: "Cancel", value: null}, ...(mode === "dir" ? [{label: "Use this folder", class: "primary", onclick: () => cur}] :
+        [{label: "Use selected file", class: "primary", onclick: () => chosen || false}])], true);
+    return r || null;
+  },
+  // an input with a "Browse…" button next to it
+  pathInput(value, mode, onchange, attrs = {}) {
+    const inp = h("input", Object.assign({value: value ?? "", style: {width: "100%"}}, attrs));
+    inp.addEventListener("input", () => onchange(inp.value));
+    const btn = h("button", {class: "small", type: "button", onclick: async () => {
+      const startAt = inp.value ? (mode === "file" ? inp.value.replace(/\/[^/]*$/, "") : inp.value) : "";
+      const p = await W.pickPath(startAt, mode);
+      if (p) { inp.value = p; onchange(p); inp.dispatchEvent(new Event("change")); }
+    }}, "Browse…");
+    return h("div", {class: "row", style: {flexWrap: "nowrap", gap: "6px", width: "100%"}}, inp, btn);
+  },
   download(url) { const a = h("a", {href: url, download: ""}); document.body.appendChild(a); a.click(); a.remove(); },
   saveText(name, text, type = "text/plain") {
     const blob = new Blob([text], {type}); const a = h("a", {href: URL.createObjectURL(blob), download: name});

@@ -53,3 +53,21 @@ def test_delete_batches_files_profiles(studio, tmp_path):
     store.seed()
     assert c.get("/api/calc_profiles/optfreq_tddft").status_code == 404
     assert "optfreq_tddft" not in [x["id"] for x in c.get("/api/calc_profiles").json()]
+
+
+def test_delete_extraction_profiles_and_browse(studio, tmp_path):
+    from fastapi.testclient import TestClient
+    from orca_studio import store
+    from orca_studio.main import app
+    c = TestClient(app)
+    assert c.delete("/api/items/extraction_profiles/step_tddft").status_code == 200   # starter profiles too
+    store.seed()
+    assert c.get("/api/items/extraction_profiles/step_tddft").status_code == 404     # and they stay deleted
+    (tmp_path / "set1" / "sub").mkdir(parents=True)
+    (tmp_path / "set1" / "a.out").write_text("x")
+    r = c.get("/api/browse", params={"path": str(tmp_path / "set1")}).json()
+    assert r["dirs"] == [{"name": "sub", "path": str(tmp_path / "set1" / "sub")}] and r["n_out"] == 1
+    assert r["parent"] == str(tmp_path)
+    r = c.get("/api/browse", params={"path": str(tmp_path / "set1"), "files": 1}).json()
+    assert [f["name"] for f in r["files"]] == ["a.out"]
+    assert c.get("/api/browse", params={"path": str(tmp_path / "nope" / "x")}).json()["path"] == str(tmp_path)

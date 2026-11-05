@@ -7,6 +7,10 @@ App.register("settings", async (main) => {
   main.append(h("h1", null, "Settings"));
 
   const field = (obj, key, attrs = {}) => {
+    if (attrs.browse) {
+      const mode = attrs.browse; delete attrs.browse;
+      return W.pathInput(obj[key], mode, v => obj[key] = v, attrs);
+    }
     const inp = h("input", Object.assign({value: obj[key] ?? ""}, attrs));
     inp.addEventListener("input", () => { obj[key] = attrs.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value; });
     return inp;
@@ -27,7 +31,7 @@ App.register("settings", async (main) => {
   const P = s.programs;
   const progs = h("div", {class: "form-grid"});
   const progRow = (label, key, note, obj = P, testKey = key, wide = true) => {
-    progs.append(h("div", {class: "lbl"}, label), field(obj, key, {style: {width: "100%"}, placeholder: "not set"}), testBtn(testKey));
+    progs.append(h("div", {class: "lbl"}, label), field(obj, key, {placeholder: "not set", browse: key === "openmpi_bin" ? "dir" : "file"}), testBtn(testKey));
     if (note) progs.append(h("div", {class: "note"}, note));
   };
   progRow("ORCA executable", "orca", "Full path; ORCA is always called by its full path (needed for MPI runs).");
@@ -73,13 +77,13 @@ App.register("settings", async (main) => {
   // ---------------------------------------------------------------- folders
   const F = s.folders;
   const fg = h("div", {class: "form-grid"});
-  const frow = (label, key, note, attrs = {}) => { fg.append(h("div", {class: "lbl"}, label), field(F, key, Object.assign({style: {width: "100%"}}, attrs)), h("span")); if (note) fg.append(h("div", {class: "note"}, note)); };
+  const frow = (label, key, note, attrs = {}) => { fg.append(h("div", {class: "lbl"}, label), field(F, key, Object.assign(attrs.type || attrs.plain ? {style: {width: "100%"}} : {browse: "dir"}, (({plain, ...a}) => a)(attrs))), h("span")); if (note) fg.append(h("div", {class: "note"}, note)); };
   frow("Calculations root", "calculations_root", "Default folder for new batches. Each batch stores its own path, so changing this never breaks old batches.");
-  frow("Folder layout", "layout", "Placeholders: {batch} {molecule} {step_no:02d} {step_slug}");
+  frow("Folder layout", "layout", "Placeholders: {batch} {molecule} {step_no:02d} {step_slug}", {plain: true});
   frow("Scratch folder", "scratch", "Optional. If set, jobs run there and results are copied back.");
   fg.append(h("div", {class: "lbl"}, "Exports go to"), W.select([{value: "batch", label: "Inside each batch (results/)"}, {value: "central", label: "One central folder"}], F.exports_mode, v => F.exports_mode = v), h("span"));
   frow("Central export folder", "exports_central");
-  frow("Export file name", "export_pattern", "Placeholders: {batch} {profile} {date}");
+  frow("Export file name", "export_pattern", "Placeholders: {batch} {profile} {date}", {plain: true});
   fg.append(h("div", {class: "lbl"}, "CSV separator"), W.select([{value: ",", label: "comma ,"}, {value: ";", label: "semicolon ;"}], F.csv_separator, v => F.csv_separator = v), h("span"));
   frow("Decimal places", "decimals", null, {type: "number", min: 0, max: 12, style: {width: "90px"}});
   main.append(h("div", {class: "card"}, h("h2", {style: {marginTop: 0}}, "Folders"), fg));
