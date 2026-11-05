@@ -168,6 +168,15 @@ def main():
     open(f"{base}.xyz", "w").write(f"{len(geom)}\nCoordinates from ORCA-job {base} E {E:.12f}\n" + "".join(
         f"  {a[0]:<2s}{a[1]:16.8f}{a[2]:16.8f}{a[3]:16.8f}\n" for a in geom))
     open(f"{base}.gbw", "wb").write(b"FAKEGBW" * 100)
+    if "%plots" in text.lower():
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import _fakecube as fc
+        grid = int((re.search(r"dim1\s+(\d+)", text, re.I) or [0, 40])[1])
+        pa = fc.atoms_of(base)
+        for fn, idx in re.findall(r'MO\("([^"]+)",\s*(\d+)', text):
+            fc.write(fn, pa, grid, fc.mo(pa, int(idx)))
+        for fn in re.findall(r'(?:ElDens|SpinDens)\("([^"]+)"', text):
+            fc.write(fn, pa, grid, fc.density(pa))
     if "keepdens" in kwl:
         open(f"{base}.densities", "wb").write(b"FAKEDENS")
     if tddft:

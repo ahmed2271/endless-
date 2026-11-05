@@ -106,6 +106,16 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   names the step on sub-table tabs. New starters: calculation + extraction profile "Opt → SP → TDDFT".
   Test: tests/test_per_step_extraction.py.
 
+- Feedback round 4 (2026-11-05), first real runs on the workstation:
+  - A finished batch stayed "running" and no orbitals appeared: the cube step ran inside the job and
+    orca_plot (unverified menu answers) never exited. Now: cubes and scripts run in a background
+    thread after the job (batch is done when ORCA is; header shows "Making cubes / scripts"),
+    orca_plot has a watchdog (stops it as soon as it repeats its menu, or after a time limit, with a
+    clear error and log), and a second route makes cubes without orca_plot menus: a short ORCA run
+    (MORead NoIter + %plots, text in Libraries → orca_plot) that writes all requested orbital and
+    density cubes at once. The route that works is remembered. ORCA checks test both routes.
+  - Tests: tests/test_cube_routes.py, extra test in tests/test_verify.py. 33 passed.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.
@@ -115,5 +125,5 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
 - cclib is not used: it could not be tested against ORCA 6.0.1 output here.
 - Not implemented: ⟨S_A·S_B⟩ from ORCA's local spin analysis (use a custom pattern field), SOC matrix
   elements as a built-in table, vibrational mode animation.
-- orca_plot menu answers, the MBIS large-print extras and the ΔSCF block are best guesses for 6.0.1
+- orca_plot menu answers (the %plots route covers orbitals and densities if they are wrong), the MBIS large-print extras and the ΔSCF block are best guesses for 6.0.1
   until ORCA checks has run; the checks update the libraries.

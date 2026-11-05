@@ -7,6 +7,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _fakecube as fc  # noqa: E402
 
 base = sys.argv[1][:-4] if sys.argv[1].endswith(".gbw") else sys.argv[1]
+if os.environ.get("FAKE_ORCA_PLOT_LOOP"):
+    while True:
+        print("    1 - Enter type of plot\n    2 - Enter no of orbital to plot\n   11 - exit this program\n Enter a number: ")
 ans = [x.strip() for x in sys.stdin.read().splitlines()]
 print("                                    *** orca_plot (stand-in) ***")
 print("    1 - Enter type of plot\n    2 - Enter no of orbital to plot\n   10 - Generate the plot\n   11 - exit this program")

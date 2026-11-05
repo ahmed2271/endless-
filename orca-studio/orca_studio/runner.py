@@ -525,6 +525,7 @@ class Runner:
     def __init__(self):
         self.lock = threading.RLock()
         self.jobs: dict[int, Job] = {}        # task_id -> Job
+        self.post_threads: set[threading.Thread] = set()   # cube / script work after jobs
         self.thread: threading.Thread | None = None
         self.stop_event = threading.Event()
         self.rr = 0
@@ -767,17 +768,32 @@ class Runner:
         self.poke()
 
     def post_success(self, b, m, k, step, wf, sd, base):
-        for hook in ("scripts", "cubes"):
-            try:
-                if hook == "scripts" and wf.get("scripts"):
-                    from . import scripts_reg
-                    scripts_reg.run_step_scripts(b, m, k, step, sd, base)
-                if hook == "cubes" and wf.get("cubes"):
-                    from . import visuals
-                    visuals.auto_cubes(b, m, k, step, sd, base, wf["cubes"])
-            except Exception as e:
-                db.log(b["id"], f"{m['name']} step {k + 1}: post-processing ({hook}) failed: {e}", "warning")
-        cleanup(sd, wf.get("keep", "all"))
+        """Scripts and cubes run in their own thread after the job, so a batch is finished as soon
+        as ORCA is; a slow or failing post-processing step never holds the batch."""
+        if not wf.get("scripts") and not wf.get("cubes"):
+            cleanup(sd, wf.get("keep", "all"))
+            return
+
+        def work():
+            for hook in ("scripts", "cubes"):
+                try:
+                    if hook == "scripts" and wf.get("scripts"):
+                        from . import scripts_reg
+                        scripts_reg.run_step_scripts(b, m, k, step, sd, base)
+                    if hook == "cubes" and wf.get("cubes"):
+                        from . import visuals
+                        visuals.auto_cubes(b, m, k, step, sd, base, wf["cubes"])
+                except Exception as e:
+                    db.log(b["id"], f"{m['name']} step {k + 1}: post-processing ({hook}) failed: {e}", "warning")
+            cleanup(sd, wf.get("keep", "all"))
+            with self.lock:
+                self.post_threads.discard(threading.current_thread())
+
+        t = threading.Thread(target=work, daemon=True, name=f"post-{m['id']}-{k}")
+        with self.lock:
+            self.post_threads.add(t)
+        db.log(b["id"], f"{m['name']} step {k + 1}: making cubes / running scripts in the background")
+        t.start()
 
     def post_any(self, b, m, k):
         try:
@@ -848,6 +864,7 @@ class Runner:
                        "WHERE t.status='queued' AND b.status='running'")["n"]
         return {"cores_used": used_c, "cores_total": int(s["resources"]["total_cores"]), "mem_used_mb": used_m,
                 "mem_total_mb": int(s["resources"].get("total_memory_mb") or 0), "running": len(self.jobs),
+                "post_processing": len(self.post_threads),
                 "queued": queued}
 
 

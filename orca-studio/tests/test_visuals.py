@@ -32,8 +32,9 @@ def test_cubes_mep_and_spectra(studio):
         assert wait_for(lambda: batches.get(b["id"])["status"] == "done", 90)
     finally:
         r.stop()
-    log = " ".join(x["text"] for x in db.q("SELECT text FROM logs WHERE batch_id=?", (b["id"],)))
-    assert "cubes generated (3 orbitals, densities, MEP)" in log, log
+    logs = lambda: " ".join(x["text"] for x in db.q("SELECT text FROM logs WHERE batch_id=?", (b["id"],)))
+    assert wait_for(lambda: logs().count("cube(s) made") == 2, 60), logs()     # made in the background
+    assert "4 cube(s) made" in logs() and "problems" not in logs(), logs()
     m = batches.molecules(b["id"])[0]
     names = {c["name"] for c in visuals.list_cubes(m, 1)}
     assert {"HOMO-1_a_g24.cube", "HOMO_a_g24.cube", "LUMO_a_g24.cube", "density_g24.cube", "mep_esp_g24.cube"} <= names

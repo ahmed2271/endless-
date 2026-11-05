@@ -67,16 +67,16 @@ def mol_make_cubes(mid: int, data: dict = Body(...)):
     m = _mol(mid)
     k = _step(m, data.get("step"))
     grid = int(data.get("grid") or 80)
-    made, errors = [], []
+    reqs = []
     for it in data.get("items") or []:
-        try:
-            if it["kind"] == "mo":
-                for lbl in visuals.expand_range(it.get("label", "HOMO")):
-                    made.append(visuals.make_cube(m, k, "mo", grid, lbl, int(it.get("operator", 0)), force=bool(data.get("force"))))
-            else:
-                made.append(visuals.make_cube(m, k, it["kind"], grid, state=it.get("state"), force=bool(data.get("force"))))
-        except (ValueError, RuntimeError) as e:
-            errors.append(f"{it.get('label') or it['kind']}: {e}")
+        if it["kind"] == "mo":
+            reqs += [{"kind": "mo", "label": lbl, "operator": int(it.get("operator", 0))} for lbl in visuals.expand_range(it.get("label", "HOMO"))]
+        else:
+            reqs.append({"kind": it["kind"], "state": it.get("state")})
+    try:
+        made, errors = visuals.make_cubes(m, k, reqs, grid, force=bool(data.get("force")))
+    except (ValueError, RuntimeError) as e:
+        made, errors = [], [str(e)]
     return {"cubes": made, "errors": errors}
 
 

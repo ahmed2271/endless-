@@ -268,10 +268,7 @@ def check_dscf():
 
 
 def check_orca_plot():
-    s = config.load_settings()
-    plot = config.utility_path("orca_plot", s)
-    if not tools.is_exec(plot):
-        return _result("orca_plot", "fail", [f"orca_plot not found at {plot}"])
+    from . import visuals
     d = _dir("orca_plot")
     out = run_orca(d, "w", f"{store.text('functionals', 'b3lyp', 'B3LYP')} {store.text('basis_sets', 'def2svp', 'def2-SVP')} "
                            f"{store.text('assembly', 'keepdens_keyword', 'KeepDens')}")
@@ -280,31 +277,45 @@ def check_orca_plot():
     details, changes = [], []
     homo = out.orbital_index("homo", 0)
     results = {}
-    for eid, fill in (("mo", {"index": homo, "operator": 0, "grid": 40}), ("density", {"grid": 40}),
-                      ("esp", {"grid": 40})):
+    for eid, fill in (("mo", {"index": homo, "operator": 0, "grid": 40}), ("density", {"grid": 40}), ("esp", {"grid": 40})):
         e = store.get_entry("orca_plot", eid)
         if not e:
             continue
         answers = e["orca_text"]
         for k, v in fill.items():
             answers = answers.replace("{" + k + "}", str(v))
-        before = set(p.name for p in d.glob("*.cube"))
-        r = subprocess.run([plot, "w.gbw", "-i"], cwd=d, input=answers, capture_output=True, text=True, timeout=300,
-                           env=tools.build_env(s))
-        new = sorted(set(p.name for p in d.glob("*.cube")) - before)
-        (d / f"orca_plot_{eid}.log").write_text(r.stdout + r.stderr)
+        new, text, problem = visuals.orca_plot_raw(d, "w.gbw", answers, timeout=300)
+        (d / f"orca_plot_{eid}.log").write_text(text)
         results[eid] = new
         if new:
-            details.append(f"{e['label']}: cube written ({', '.join(new)})")
+            details.append(f"orca_plot {e['label']}: cube written ({', '.join(p.name for p in new)})")
             changes += _set_entry("orca_plot", eid, verified=True)
         else:
-            menu = [ln for ln in (r.stdout or "").splitlines() if re.match(r"^\s*\d+\s*-\s", ln)][:30]
-            details.append(f"{e['label']}: no cube. Menu printed by orca_plot: " + " | ".join(m.strip() for m in menu))
+            menu = [ln.strip() for ln in text.splitlines() if re.match(r"^\s*\d+\s*-\s", ln)]
+            seen = list(dict.fromkeys(menu))[:40]
+            details.append(f"orca_plot {e['label']}: {problem}. Menu lines printed by orca_plot: " + " | ".join(seen)
+                           + f" (full log: verify/orca_plot/orca_plot_{eid}.log)")
             if eid == "esp":
                 changes += _set_entry("orca_plot", "esp", hidden=True, notes="No ESP plot type in this orca_plot; use mep.py")
-    status = "pass" if results.get("mo") else "fail"
+    # second route: %plots in a short ORCA run that reads the .gbw
+    try:
+        got = visuals.run_plots_route(d, "w", [{"kind": "mo", "file": "homo_plots.cube", "index": homo, "operator": 0},
+                                              {"kind": "density", "file": "dens_plots.cube"}], 40)
+        details.append(f"%plots route: cubes written ({', '.join(sorted(got))})")
+        plots_ok = True
+    except RuntimeError as e:
+        details.append(f"%plots route failed: {e}")
+        plots_ok = False
+    if results.get("mo"):
+        db.kv_set("cube_route", "orca_plot")
+        details.append("Cubes will be made with orca_plot.")
+    elif plots_ok:
+        db.kv_set("cube_route", "plots")
+        details.append("Cubes will be made with the %plots route (orca_plot's menu answers did not fit). "
+                       "Send the orca_plot log to fix the menu answers if you also want TDDFT difference densities.")
     if not results.get("esp"):
         details.append("ESP route: use the registered mep.py script (Scripts page).")
+    status = "pass" if (results.get("mo") or plots_ok) else "fail"
     return _result("orca_plot", status, details, changes)
 
 

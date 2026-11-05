@@ -104,12 +104,50 @@ def list_cubes(m: dict, k: int) -> list[dict]:
     return [dict(v, name=n, path=str(sd / "cubes" / n)) for n, v in idx.items() if (sd / "cubes" / n).exists()]
 
 
-def run_orca_plot(sd: Path, base: str, entry_id: str, fill: dict) -> Path:
-    """Feed the library's menu answers to orca_plot; return the new cube file."""
+def orca_plot_raw(sd: Path, gbw: str, answers: str, timeout: float = 900, max_log: int = 2_000_000) -> tuple[list[Path], str, str]:
+    """Run 'orca_plot gbw -i' with menu answers on stdin, with a watchdog.
+
+    orca_plot repeats its menu forever when an answer does not fit; the watchdog stops it as soon as
+    its output grows beyond max_log bytes. Returns (new cube files, log text, problem or '').
+    """
     s = config.load_settings()
     exe = config.utility_path("orca_plot", s)
     if not tools.is_exec(exe):
-        raise RuntimeError(f"orca_plot not found at {exe}")
+        return [], "", f"orca_plot not found at {exe}"
+    before = {p.name: p.stat().st_mtime for p in sd.glob("*.cube")}
+    log_path = sd / ".orca_plot_run.log"
+    problem = ""
+    with open(log_path, "w") as log:
+        proc = subprocess.Popen([exe, gbw, "-i"], cwd=sd, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
+                                env=tools.build_env(s), text=True, start_new_session=True)
+        try:
+            proc.stdin.write(answers)
+            proc.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+        t0 = time.time()
+        while proc.poll() is None:
+            time.sleep(0.2)
+            if log_path.stat().st_size > max_log:
+                problem = "orca_plot kept repeating its menu: the menu answers in Libraries → orca_plot do not fit this orca_plot version"
+                break
+            if time.time() - t0 > timeout:
+                problem = f"orca_plot did not finish within {int(timeout)} s"
+                break
+        if proc.poll() is None:
+            from .runner import kill_tree
+            kill_tree(proc.pid, grace=2)
+    text = log_path.read_text(errors="replace")
+    if len(text) > 60000:
+        text = text[:30000] + "\n[...]\n" + text[-20000:]
+    new = [p for p in sd.glob("*.cube") if p.name not in before or p.stat().st_mtime > before[p.name]]
+    if not new and not problem:
+        problem = "orca_plot wrote no cube"
+    return new, text, problem
+
+
+def run_orca_plot(sd: Path, base: str, entry_id: str, fill: dict) -> Path:
+    """Feed the library's menu answers to orca_plot; return the new cube file."""
     e = store.get_entry("orca_plot", entry_id)
     if not e:
         raise RuntimeError(f"no orca_plot recipe '{entry_id}' in the library")
@@ -118,27 +156,97 @@ def run_orca_plot(sd: Path, base: str, entry_id: str, fill: dict) -> Path:
     answers = e["orca_text"]
     for k_, v in fill.items():
         answers = answers.replace("{" + k_ + "}", str(v))
-    before = {p.name: p.stat().st_mtime for p in sd.glob("*.cube")}
-    r = subprocess.run([exe, f"{base}.gbw", "-i"], cwd=sd, input=answers, capture_output=True, text=True,
-                       timeout=1800, env=tools.build_env(s))
-    new = [p for p in sd.glob("*.cube") if p.name not in before or p.stat().st_mtime > before[p.name]]
+    new, text, problem = orca_plot_raw(sd, f"{base}.gbw", answers, timeout=600 + int(fill.get("grid", 80)) ** 3 / 2000)
+    (sd / "cubes").mkdir(exist_ok=True)
+    (sd / "cubes" / f"orca_plot_{entry_id}.log").write_text(text)
     if not new:
-        (sd / "cubes").mkdir(exist_ok=True)
-        (sd / "cubes" / f"orca_plot_{entry_id}.log").write_text(r.stdout + r.stderr)
-        raise RuntimeError(f"orca_plot wrote no cube (see cubes/orca_plot_{entry_id}.log)")
+        raise RuntimeError(f"{problem} (log: cubes/orca_plot_{entry_id}.log)")
     return max(new, key=lambda p: p.stat().st_mtime)
 
 
-def make_cube(m: dict, k: int, kind: str, grid: int = 80, label: str | None = None, operator: int = 0,
-              state: int | None = None, force: bool = False) -> dict:
-    """kind: mo | density | spin_density | esp | tddft_difference | tddft_transition."""
+PLOTS_KINDS = ("mo", "density", "spin_density")
+
+
+def plot_input(sd: Path, base: str, items: list[dict], grid: int) -> str:
+    """Input for the %plots route: the step's own input with MORead NoIter, the job keywords
+    (Opt, Freq, ...) and heavy blocks (TDDFT, ...) removed, and a %plots block added."""
+    src = (sd / f"{base}.inp").read_text(errors="replace").splitlines()
+    strip = set()
+    for lid in ("step_types", "opt_target", "opt_convergence", "hessian", "populations"):
+        for e in (store.get_library(lid) or {}).get("entries", []):
+            strip |= {t.lower() for t in e["orca_text"].split()}
+    strip |= {"moread", "keepdens"}
+    drop = set(store.text("orca_plot", "plots_drop_blocks", "tddft geom freq").lower().split()) | {"moinp", "pal", "plots"}
+    out, skipping = [], False
+    for line in src:
+        st = line.strip()
+        if skipping:
+            if line.rstrip().lower() == "end" or (st.lower() == "end" and not line.startswith(" ")):
+                skipping = False
+            continue
+        if st.startswith("%"):
+            name = st[1:].split()[0].lower() if st[1:].split() else ""
+            if name in drop:
+                single = name == "moinp" or st.lower().endswith(" end") or (len(st.split()) > 1 and name == "maxcore")
+                skipping = not single
+                continue
+        if st.startswith("!"):
+            toks = [t for t in st[1:].split() if t.lower() not in strip]
+            if not toks:
+                continue
+            line = "! " + " ".join(toks)
+        if st.lower().startswith("* xyzfile"):
+            parts = st.split()
+            line = " ".join(parts[:4] + ["geom.xyz"])
+        out.append(line)
+    kw = store.text("orca_plot", "plots_keywords", "MORead NoIter")
+    hdr = store.text("orca_plot", "plots_header", "dim1 {grid}\ndim2 {grid}\ndim3 {grid}\nFormat Gaussian_Cube").replace("{grid}", str(grid))
+    lines = []
+    for it in items:
+        tpl = store.text("orca_plot", f"plots_{it['kind']}", "")
+        lines.append(tpl.replace("{file}", it["file"]).replace("{index}", str(it.get("index", 0)))
+                     .replace("{operator}", str(it.get("operator", 0))))
+    moinp = store.text("assembly", "moinp", '%moinp "{gbw}"').replace("{gbw}", "orbitals.gbw")
+    pal = store.text("assembly", "pal", "%pal nprocs {nprocs} end").replace("{nprocs}", "1")
+    # insert our lines right after the last "!" line
+    last_bang = max([i for i, ln in enumerate(out) if ln.strip().startswith("!")] or [-1])
+    extra = [f"! {kw}", pal, moinp, "%plots"] + ["  " + x for x in hdr.splitlines() + lines] + ["end"]
+    return "\n".join(out[:last_bang + 1] + extra + out[last_bang + 1:]) + "\n"
+
+
+def run_plots_route(sd: Path, base: str, items: list[dict], grid: int) -> dict[str, Path]:
+    """Make several cubes in one short ORCA run (reads the .gbw, no SCF iterations)."""
+    s = config.load_settings()
+    wd = sd / "cubes" / "_plot_run"
+    if wd.exists():
+        shutil.rmtree(wd)
+    wd.mkdir(parents=True)
+    shutil.copy2(sd / f"{base}.gbw", wd / "orbitals.gbw")
+    geo = sd / f"{base}.xyz" if (sd / f"{base}.xyz").exists() else sd / "input.xyz"
+    shutil.copy2(geo, wd / "geom.xyz")
+    (wd / "plot.inp").write_text(plot_input(sd, base, items, grid))
+    with open(wd / "plot.out", "w") as fh:
+        try:
+            subprocess.run([str(Path(s["programs"]["orca"]).expanduser()), "plot.inp"], cwd=wd, stdout=fh,
+                           stderr=subprocess.STDOUT, env=tools.build_env(s), timeout=3600)
+        except subprocess.TimeoutExpired:
+            fh.write("\n[ORCA Studio] plot run timed out\n")
+    got = {it["file"]: wd / it["file"] for it in items if (wd / it["file"]).exists()}
+    if not got:
+        tail = "\n".join((wd / "plot.out").read_text(errors="replace").splitlines()[-15:])
+        raise RuntimeError(f"the %plots run wrote no cube (see cubes/_plot_run/plot.out). Last lines:\n{tail}")
+    return got
+
+
+def _spec(m, k, kind, grid, label=None, operator=0, state=None):
+    """Name and orca_plot fill values for one requested cube."""
     sd, base = step_paths(m, k)
-    if not (sd / f"{base}.gbw").exists():
-        raise ValueError("the .gbw file of this step was not kept")
     spin = "b" if operator else "a"
     fill = {"grid": grid, "operator": operator}
     if kind == "mo":
         o = load_out(sd / f"{base}.out")
+        if not o or not o.orbitals:
+            raise ValueError("no orbital energies in this step's output")
         hl = o.homo_lumo("beta" if operator else "alpha")
         idx = resolve_label(label or "HOMO", hl["homo"]["index"])
         fill["index"] = idx
@@ -148,17 +256,87 @@ def make_cube(m: dict, k: int, kind: str, grid: int = 80, label: str | None = No
         name = f"{'diffdens' if kind == 'tddft_difference' else 'transdens'}_s{fill['state']}_g{grid}.cube"
     else:
         name = f"{kind}_g{grid}.cube"
+    return {"kind": kind, "name": name, "fill": fill, "label": label, "operator": operator, "state": state}
+
+
+def make_cubes(m: dict, k: int, requests: list[dict], grid: int = 80, force: bool = False) -> tuple[list[dict], list[str]]:
+    """Make several cubes. Tries the route that worked last time first (orca_plot or %plots)."""
+    sd, base = step_paths(m, k)
+    if not (sd / f"{base}.gbw").exists():
+        raise ValueError("the .gbw file of this step was not kept")
     idx = _index(sd)
-    target = sd / "cubes" / name
-    if target.exists() and not force:
-        return dict(idx.get(name, {}), name=name, path=str(target), cached=True)
-    produced = run_orca_plot(sd, base, kind, fill)
-    target.parent.mkdir(exist_ok=True)
-    shutil.move(str(produced), target)
-    idx[name] = {"kind": kind, "grid": grid, "label": label, "operator": operator, "state": state,
-                 "index": fill.get("index"), "created": time.time()}
+    done, todo, errors = [], [], []
+    for rq in requests:
+        try:
+            sp = _spec(m, k, rq["kind"], grid, rq.get("label"), int(rq.get("operator", 0)), rq.get("state"))
+        except ValueError as e:
+            errors.append(f"{rq.get('label') or rq['kind']}: {e}")
+            continue
+        target = sd / "cubes" / sp["name"]
+        if target.exists() and not force:
+            done.append(dict(idx.get(sp["name"], {}), name=sp["name"], path=str(target), cached=True))
+        elif sp["name"] not in [t["name"] for t in todo]:
+            todo.append(sp)
+    if not todo:
+        return done, errors
+    (sd / "cubes").mkdir(exist_ok=True)
+    pref = db.kv_get("cube_route", "orca_plot")
+    order = [pref] + [r for r in ("orca_plot", "plots") if r != pref]
+
+    def record(sp, path, route):
+        target = sd / "cubes" / sp["name"]
+        shutil.move(str(path), target)
+        idx[sp["name"]] = {"kind": sp["kind"], "grid": grid, "label": sp["label"], "operator": sp["operator"],
+                           "state": sp["state"], "index": sp["fill"].get("index"), "created": time.time(), "route": route}
+        done.append(dict(idx[sp["name"]], name=sp["name"], path=str(target)))
+
+    remaining = list(todo)
+    problems = {}
+    for route in order:
+        if not remaining:
+            break
+        if route == "orca_plot":
+            for sp in remaining:
+                try:
+                    record(sp, run_orca_plot(sd, base, sp["kind"], sp["fill"]), "orca_plot")
+                    db.kv_set("cube_route", "orca_plot")
+                except RuntimeError as e:
+                    problems.setdefault(sp["name"], []).append(f"orca_plot: {e}")
+                    if "repeating its menu" in str(e) or "not found" in str(e):
+                        break          # the menu answers do not fit at all: do not try the other cubes
+            remaining = [sp for sp in remaining if not (sd / "cubes" / sp["name"]).exists()]
+        else:
+            can = [sp for sp in remaining if sp["kind"] in PLOTS_KINDS]
+            if not can:
+                continue
+            items = [{"kind": sp["kind"], "file": sp["name"], "index": sp["fill"].get("index", 0),
+                      "operator": sp["operator"]} for sp in can]
+            try:
+                got = run_plots_route(sd, base, items, grid)
+                for sp in can:
+                    if sp["name"] in got:
+                        record(sp, got[sp["name"]], "plots")
+                    else:
+                        problems.setdefault(sp["name"], []).append("%plots: cube not written")
+                if got:
+                    db.kv_set("cube_route", "plots")
+            except RuntimeError as e:
+                for sp in can:
+                    problems.setdefault(sp["name"], []).append(f"%plots: {e}")
+            remaining = [sp for sp in remaining if not (sd / "cubes" / sp["name"]).exists()]
     _save_index(sd, idx)
-    return dict(idx[name], name=name, path=str(target))
+    for sp in remaining:
+        errors.append(f"{sp['name'].replace('.cube', '')}: " + " | ".join(problems.get(sp["name"], ["failed"])))
+    return done, errors
+
+
+def make_cube(m: dict, k: int, kind: str, grid: int = 80, label: str | None = None, operator: int = 0,
+              state: int | None = None, force: bool = False) -> dict:
+    """kind: mo | density | spin_density | esp | tddft_difference | tddft_transition."""
+    done, errors = make_cubes(m, k, [{"kind": kind, "label": label, "operator": operator, "state": state}], grid, force)
+    if errors or not done:
+        raise RuntimeError("; ".join(errors) or "cube not made")
+    return done[0]
 
 
 def make_mep(m: dict, k: int, grid: int = 80, iso: float = 0.001, force: bool = False) -> dict:
@@ -225,23 +403,26 @@ def batch_mep_range(batch_id: int) -> dict:
 def auto_cubes(b, m, k, step, sd, base, cfg):
     """After a successful step: orbitals / densities / MEP requested in the step's workflow."""
     grid = int(cfg.get("grid") or 80)
-    labels = []
+    o = load_out(Path(sd) / f"{base}.out")
+    open_shell = bool(o and o.orbitals and not o.orbitals["restricted"])
+    reqs = []
     for spec in cfg.get("orbitals") or []:
-        labels += expand_range(spec)
-    for lbl in labels:
-        make_cube(m, k, "mo", grid, lbl, 0)
-        o = load_out(Path(sd) / f"{base}.out")
-        if o and o.orbitals and not o.orbitals["restricted"]:
-            make_cube(m, k, "mo", grid, lbl, 1)
+        for lbl in expand_range(spec):
+            reqs.append({"kind": "mo", "label": lbl, "operator": 0})
+            if open_shell:
+                reqs.append({"kind": "mo", "label": lbl, "operator": 1})
     if cfg.get("densities"):
-        make_cube(m, k, "density", grid)
-        o = load_out(Path(sd) / f"{base}.out")
+        reqs.append({"kind": "density"})
         if o and o.mult and o.mult > 1:
-            make_cube(m, k, "spin_density", grid)
+            reqs.append({"kind": "spin_density"})
+    made, errors = make_cubes(m, k, reqs, grid) if reqs else ([], [])
     if cfg.get("mep"):
-        make_mep(m, k, grid)
-    db.log(b["id"], f"{m['name']} step {k + 1}: cubes generated ({len(labels)} orbitals"
-                    f"{', densities' if cfg.get('densities') else ''}{', MEP' if cfg.get('mep') else ''})")
+        try:
+            make_mep(m, k, grid)
+        except (RuntimeError, ValueError) as e:
+            errors.append(f"MEP: {e}")
+    db.log(b["id"], f"{m['name']} step {k + 1}: {len(made)} cube(s) made"
+                    + (f"; problems: {' / '.join(errors)}" if errors else ""), "warning" if errors else "info")
 
 
 # --------------------------------------------------------------------------- batch-wide jobs
@@ -262,11 +443,10 @@ def batch_cubes(batch_id: int, items: list[dict], grid: int, step: int | None):
                         raise ValueError("no step with a .gbw")
                     if it["kind"] == "mep":
                         make_mep(m, k, grid)
-                    elif it["kind"] == "mo":
-                        for lbl in expand_range(it.get("label", "HOMO")):
-                            make_cube(m, k, "mo", grid, lbl, int(it.get("operator", 0)))
                     else:
-                        make_cube(m, k, it["kind"], grid, state=it.get("state"))
+                        labels = expand_range(it.get("label", "HOMO")) if it["kind"] == "mo" else [None]
+                        _, errs = make_cubes(m, k, [dict(it, label=l) for l in labels], grid)
+                        state["errors"] += [f"{m['name']}: {e}" for e in errs]
                 except Exception as e:
                     state["errors"].append(f"{m['name']}: {e}")
                 state["done"] += 1
