@@ -73,6 +73,20 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   with password (PBKDF2 hash, signed cookie; this computer never needs the password).
 - Tested: tests/test_advanced.py (5 tests).
 
+- Feedback round 1 (2026-11-05):
+  - A step whose type was changed kept its old name ("Opt + Freq"), so it looked as if the deleted
+    step came back. Changing the type now renames the step; new profiles start with no steps and
+    show a hint.
+  - Step workflow shows only the options and success checks that apply (no optimization or
+    imaginary-frequency checks for single points).
+  - Delete: batches (list only, or with their folder; never the calculations root, the home folder
+    or an analysed folder of your own .out files), files and folders in the Files tab, and
+    calculation profiles (starter profiles are hidden instead and can be unhidden).
+  - OpenMPI: ORCA takes mpirun from PATH; the service does not read .bashrc, so on start-up the app
+    finds the mpirun your terminal uses (login shell, PATH, usual install folders) and fills in the
+    folder once. The field is optional; the validation warning only appears if no mpirun is found.
+  - Tests: tests/test_delete.py, tests/test_openmpi.py; restart test race fixed. 29 passed.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

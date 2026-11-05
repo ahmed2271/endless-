@@ -21,6 +21,13 @@ from .runner import RUNNER
 async def lifespan(app):
     store.seed()
     db.init()
+    try:
+        mpi = tools.autofill_openmpi()
+        if mpi:
+            db.log(None, f"OpenMPI folder was not set: found and saved {mpi}")
+            db.notify(f"OpenMPI found automatically: {mpi} (check it in Settings)")
+    except Exception as e:  # never block start-up
+        db.log(None, f"OpenMPI auto-detection failed: {e}", "warning")
     if os.environ.get("ORCA_STUDIO_NO_RUNNER") != "1":
         RUNNER.start()
     yield
@@ -220,7 +227,7 @@ def new_profile(name: str) -> dict:
     return {"name": name, "description": "", "columns": default_layout, "defaults": {},
             "resources": {"nprocs": s["resources"]["default_nprocs"], "maxcore": s["resources"]["default_maxcore"]},
             "extraction_profile": "standard",
-            "steps": [{"name": "Opt + Freq", "slug": "opt_freq", "type": "opt_freq", "values": {}}]}
+            "steps": []}
 
 
 @app.get("/api/calc_profiles")
@@ -264,10 +271,25 @@ def api_profile_save(pid: str, p: dict = Body(...)):
 
 @app.delete("/api/calc_profiles/{pid}")
 def api_profile_delete(pid: str):
-    try:
-        store.delete_item("calc_profiles", pid)
-    except ValueError as e:
-        err(str(e))
+    """Delete a profile (moved to .trash). Starter profiles are hidden instead, so they do not come back."""
+    p = store.get_item("calc_profiles", pid)
+    if not p:
+        err("profile not found", 404)
+    if p.get("builtin"):
+        p["hidden"] = True
+        store.save_item("calc_profiles", p)
+        return {"ok": True, "hidden": True}
+    store.delete_item("calc_profiles", pid)
+    return {"ok": True}
+
+
+@app.post("/api/calc_profiles/{pid}/unhide")
+def api_profile_unhide(pid: str):
+    p = store.get_item("calc_profiles", pid)
+    if not p:
+        err("profile not found", 404)
+    p["hidden"] = False
+    store.save_item("calc_profiles", p)
     return {"ok": True}
 
 
@@ -455,15 +477,71 @@ def api_batch_patch(bid: int, data: dict = Body(...)):
     return batch_view(bid)
 
 
+def _protected(path: Path) -> str | None:
+    """Folders the app must never delete, whatever is asked."""
+    path = path.resolve()
+    s = config.load_settings()
+    never = [Path("/"), Path.home(), Path(s["folders"]["calculations_root"]).expanduser(), config.studio_dir(),
+             config.PACKAGE_DIR.parent]
+    for n in never:
+        n = n.resolve()
+        if path == n or path in n.parents:
+            return f"{path} is (or contains) {n}"
+    if len(path.parts) < 3:
+        return f"{path} is too close to the top of the disk"
+    return None
+
+
 @app.delete("/api/batches/{bid}")
-def api_batch_delete(bid: int):
+def api_batch_delete(bid: int, delete_files: bool = False):
+    """Remove a batch from the app; with delete_files=1 also delete its folder on disk."""
+    import shutil
     b = batches.get(bid)
     if not b:
         err("batch not found", 404)
     if any(j.batch_id == bid for j in RUNNER.jobs.values()):
-        err("cancel the running jobs first")
+        err("this batch still has running jobs: cancel it first")
+    folder = Path(b["folder"])
+    if delete_files:
+        if b["kind"] == "external":
+            err("this batch is an analysed folder of your own .out files; ORCA Studio never deletes those")
+        why = _protected(folder)
+        if why:
+            err(f"refusing to delete: {why}")
     batches.delete_batch_record(bid)
-    return {"ok": True, "note": f"Files in {b['folder']} were not touched."}
+    if delete_files and folder.exists():
+        shutil.rmtree(folder)
+        db.log(None, f"Batch '{b['name']}' deleted together with its folder {folder}", "warning")
+        return {"ok": True, "note": f"Batch and folder {folder} deleted."}
+    return {"ok": True, "note": f"Removed from the list. Files in {folder} were kept."}
+
+
+@app.delete("/api/file")
+def api_file_delete(path: str):
+    """Delete a file or folder inside a batch folder (from the Files tab)."""
+    import shutil
+    p = Path(path).expanduser().resolve()
+    owners = [b for b in db.q("SELECT id, kind, folder FROM batches")
+              if p == Path(b["folder"]).resolve() or Path(b["folder"]).resolve() in p.parents]
+    if not owners or not p.exists():
+        err("only files inside a batch folder can be deleted here", 403)
+    if any(b["kind"] == "external" for b in owners):
+        err("this is an analysed folder of your own .out files; ORCA Studio never deletes those", 403)
+    if any(p == Path(b["folder"]).resolve() for b in owners):
+        err("to delete the whole batch folder, delete the batch (Batches list)")
+    for j in RUNNER.jobs.values():
+        t = db.q1("SELECT step_dir FROM tasks WHERE id=?", (j.task["id"],))
+        sd = Path(t["step_dir"]).resolve() if t and t["step_dir"] else None
+        if sd and (sd == p or p in sd.parents or sd in p.parents):
+            err("a running job uses this folder")
+    why = _protected(p)
+    if why:
+        err(f"refusing to delete: {why}")
+    if p.is_dir():
+        shutil.rmtree(p)
+    else:
+        p.unlink()
+    return {"ok": True}
 
 
 @app.post("/api/batches/{bid}/upload")

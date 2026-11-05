@@ -31,7 +31,7 @@ App.register("settings", async (main) => {
     if (note) progs.append(h("div", {class: "note"}, note));
   };
   progRow("ORCA executable", "orca", "Full path; ORCA is always called by its full path (needed for MPI runs).");
-  progRow("OpenMPI bin folder", "openmpi_bin", "Needed for parallel jobs. ORCA 6.0.1 is built for OpenMPI 4.1.x.");
+  progRow("OpenMPI bin folder", "openmpi_bin", "Optional: found automatically at start-up (the mpirun your terminal uses). ORCA itself picks mpirun from PATH; the app runs as a background service that does not read .bashrc, so it puts this folder on PATH for every job. ORCA 6.0.1 is built for OpenMPI 4.1.x.");
   progs.append(h("div", {class: "lbl"}, "OpenMPI lib folder"), field(P, "openmpi_lib", {placeholder: `derived: ${data.derived.openmpi_lib || "(bin/../lib)"}`, style: {width: "100%"}}), h("span"));
   progRow("Python for scripts", "python");
   progRow("mep.py script", "mep", "Your MEP script (section 11). Scripts are referenced by name, so moving it needs only this path.", s.script_paths, "script:mep");

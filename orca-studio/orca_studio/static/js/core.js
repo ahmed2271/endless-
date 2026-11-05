@@ -106,7 +106,7 @@ const App = {
     App.timers.forEach(clearInterval); App.timers = [];
     const hash = location.hash.replace(/^#\/?/, "") || "batches";
     const parts = hash.split("/");
-    const page = parts[0];
+    const page = parts[0].split("?")[0];
     document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.page === page));
     const main = document.getElementById("main");
     main.innerHTML = "";

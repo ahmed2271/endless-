@@ -9,14 +9,19 @@ App.register("profiles", async (main, id, ver) => {
       const p = await App.post("/api/calc_profiles", {name}); location.hash = `#/profiles/${p.id}`;
     }}, "+ New profile")));
   main.append(h("p", {class: "help"}, "A profile is a reusable recipe of steps. Saving an edited profile creates a new version; each batch remembers the exact version it ran with."));
-  const list = await App.get("/api/calc_profiles");
+  const all = await App.get("/api/calc_profiles");
+  const showHidden = location.hash.includes("hidden");
+  const list = all.filter(p => showHidden || !p.hidden);
+  const nHidden = all.filter(p => p.hidden).length;
+  if (nHidden) main.append(h("p", {class: "small"}, h("a", {href: showHidden ? "#/profiles" : "#/profiles?hidden"}, showHidden ? "Hide hidden profiles" : `Show ${nHidden} hidden profile(s)`)));
   main.append(h("div", {class: "card", style: {padding: 0}}, h("table", null,
     h("tr", null, ["Name", "Steps", "Version", "Saved", ""].map(x => h("th", null, x))),
     list.map(p => h("tr", {class: "clickable", onclick: () => location.hash = `#/profiles/${p.id}`},
       h("td", null, h("b", null, p.name), h("div", {class: "small muted"}, p.description)),
       h("td", {class: "small"}, p.steps.join(" → ")),
       h("td", null, "v" + p.version), h("td", {class: "small muted"}, p.saved_at || (p.builtin ? "starter" : "")),
-      h("td", null, h("button", {class: "small", onclick: async e => {
+      h("td", null, p.hidden ? h("button", {class: "small", onclick: async e => { e.stopPropagation(); await App.post(`/api/calc_profiles/${p.id}/unhide`); App.route(); }}, "Unhide") : null,
+        h("button", {class: "small", onclick: async e => {
         e.stopPropagation();
         const name = await App.prompt("Duplicate profile", "Name of the copy", p.name + " (copy)"); if (!name) return;
         const full = await App.get(`/api/calc_profiles/${p.id}`); delete full.versions;
@@ -78,6 +83,12 @@ const Prof = {
         h("div", {class: "row", style: {marginTop: "8px", alignItems: "flex-end"}},
           h("label", {class: "f"}, "Extraction profile (default for batches)", epSel), res("nprocs", "Cores per job"), res("maxcore", "Memory per core (MB)"),
           h("span", {class: "spacer"}),
+          h("button", {class: "danger", onclick: async () => {
+            const starter = p.builtin;
+            if (!await App.confirm("Delete profile", starter ? `"${p.name}" is a starter profile: it will be hidden from the list (you can unhide it later). Batches that already used it keep their copy.` :
+              `Delete "${p.name}"? Batches that already used it keep their own copy. The file goes to the .trash folder.`, starter ? "Hide" : "Delete", true)) return;
+            st.dirty = false; await App.del(`/api/calc_profiles/${id}`); location.hash = "#/profiles";
+          }}, p.builtin ? "Hide" : "Delete"),
           h("button", {onclick: validateNow}, "Validate"), saveBtn)),
       version && version !== Math.max(...versions) ? h("div", {class: "msg warning"}, `You are looking at version ${version}. Saving creates a new version from it.`) : "",
       issuesBox);
@@ -199,6 +210,8 @@ const Prof = {
         });
         tbl.append(tr);
       });
+      if (!p.steps.length) tbl.append(h("tr", null, h("td", {colspan: cols.length + 2, style: {padding: "14px", color: "var(--muted)"}},
+        "No steps yet. Press ", h("b", null, "+ Add step"), " to add the first one (for example XTB pre-opt, Opt + Freq, Single point or TDDFT).")));
       tableWrap.append(tbl);
     }
 
@@ -224,10 +237,15 @@ const Prof = {
       s.workflow = s.workflow || {};
       const wf = s.workflow; wf.checks = wf.checks || {};
       const stype = C.stepTypes.find(t => t.id === s.type) || {};
+      const isOpt = ["xtb", "opt", "opt_freq"].includes(stype.kind) || /\b(opt|optts|copt)\b/i.test(s.extra_keywords || "");
+      const isFreq = ["freq", "opt_freq"].includes(stype.kind) || /\b(num)?freq\b/i.test(s.extra_keywords || "");
       const inp = (obj, k, attrs = {}) => { const el = h(attrs.rows ? "textarea" : "input", Object.assign({value: obj[k] ?? ""}, attrs)); el.addEventListener("input", () => { obj[k] = attrs.type === "number" ? (el.value === "" ? null : +el.value) : el.value; dirty(); }); return el; };
       const sel = (obj, k, opts, def) => W.select(opts, obj[k] ?? def, v => { obj[k] = v; dirty(); });
       const typeSel = W.select(C.stepTypes.map(t => ({value: t.id, label: t.label})), s.type, v => {
-        s.type = v; const t = C.stepTypes.find(x => x.id === v);
+        const oldT = C.stepTypes.find(x => x.id === s.type);
+        const t = C.stepTypes.find(x => x.id === v);
+        if (t && (!s.name || (oldT && s.name === oldT.label))) { s.name = t.label; s.slug = ""; }
+        s.type = v;
         if (t && t.default_values) { s.values = s.values || {}; for (const [k, val] of Object.entries(t.default_values)) if (!(k in s.values)) s.values[k] = val; ensureCols(Object.keys(t.default_values)); }
         dirty(); drawAll();
       });
@@ -284,8 +302,8 @@ const Prof = {
             h("div", {class: "lbl"}, "After this step"), sel(wf, "between", [{value: "wait_all", label: "Wait for all molecules"}, {value: "pause", label: "Pause for review"}, {value: "per_molecule", label: "Continue per molecule"}], "wait_all"),
             h("div", {class: "lbl"}, "Run this step"), sel(wf, "run_condition", [{value: "always", label: "Always"}, {value: "prev_success", label: "Only if the previous step succeeded"}, {value: "check_fired", label: "Only if a check fired in the previous step"}], "always"),
             h("div", {class: "lbl"}, "Retry on SCF failure"), retryBox,
-            h("div", {class: "lbl"}, "Restart unconverged opt"), inp(wf, "opt_restarts", {type: "number", min: 0, placeholder: "0 = off", style: {width: "90px"}}),
-            h("div", {class: "lbl"}, "Fix imaginary frequencies"), inp(wf, "imag_fix", {type: "number", min: 0, placeholder: "0 = off", style: {width: "90px"}}),
+            isOpt ? h("div", {class: "lbl"}, "Restart unconverged opt") : null, isOpt ? inp(wf, "opt_restarts", {type: "number", min: 0, placeholder: "0 = off", style: {width: "90px"}}) : null,
+            isFreq ? h("div", {class: "lbl"}, "Fix imaginary frequencies") : null, isFreq ? inp(wf, "imag_fix", {type: "number", min: 0, placeholder: "0 = off", style: {width: "90px"}}) : null,
             h("div", {class: "lbl"}, "After final failure"), sel(wf, "after_failure", [{value: "skip", label: "Skip later steps for that molecule"}, {value: "stop", label: "Stop the batch"}], "skip"),
             h("div", {class: "lbl"}, "Time limit (hours)"), inp(wf, "time_limit_h", {type: "number", min: 0, step: "any", placeholder: "none", style: {width: "90px"}}),
             h("div", {class: "lbl"}, "Order within the step"), sel(wf, "order", [{value: "list", label: "List order"}, {value: "smallest", label: "Smallest first"}, {value: "largest", label: "Largest first"}], "list"),
@@ -297,9 +315,9 @@ const Prof = {
               h("label", {class: "row small"}, h("input", {type: "checkbox", checked: wf.cubes.mep, onchange: e => { wf.cubes.mep = e.target.checked; dirty(); }}), "MEP (adds KeepDens)"))),
           h("h3", null, "Success checks"),
           h("div", {class: "form-grid", style: {gridTemplateColumns: "190px 1fr"}},
-            h("div", {class: "lbl"}, "Optimization converged"), sel(wf.checks, "opt_converged", ["fail", "warn", "off"], "fail"),
+            isOpt ? h("div", {class: "lbl"}, "Optimization converged") : null, isOpt ? sel(wf.checks, "opt_converged", ["fail", "warn", "off"], "fail") : null,
             h("div", {class: "lbl"}, "SCF converged"), sel(wf.checks, "scf_converged", ["fail", "warn", "off"], "fail"),
-            h("div", {class: "lbl"}, "Imaginary frequencies"), h("div", {class: "row"}, sel(wf.checks, "imaginary", ["fail", "warn", "off"], "fail"), "below", inp(wf.checks, "imag_threshold", {type: "number", placeholder: "-30", style: {width: "80px"}}), "cm⁻¹"),
+            isFreq ? h("div", {class: "lbl"}, "Imaginary frequencies") : null, isFreq ? h("div", {class: "row"}, sel(wf.checks, "imaginary", ["fail", "warn", "off"], "fail"), "below", inp(wf.checks, "imag_threshold", {type: "number", placeholder: "-30", style: {width: "80px"}}), "cm⁻¹") : null,
             h("div", {class: "lbl"}, "⟨S²⟩ deviation"), h("div", {class: "row"}, sel(wf.checks, "s2", ["warn", "fail", "off"], "warn"), "limit", inp(wf.checks, "s2_max_dev", {type: "number", step: "any", placeholder: "0.1", style: {width: "80px"}})))),
         h("div", {class: "card"},
           h("div", {class: "row"}, h("h2", {style: {margin: 0}}, "Input preview"), h("span", {class: "spacer"}),

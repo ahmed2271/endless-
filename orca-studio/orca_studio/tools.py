@@ -93,6 +93,61 @@ def orca_version(path: str) -> str | None:
         return None
 
 
+MPI_GLOBS = ["/usr/lib64/openmpi/bin/mpirun", "/usr/lib/x86_64-linux-gnu/openmpi/bin/mpirun",
+             "/opt/openmpi*/bin/mpirun", "/opt/*/openmpi*/bin/mpirun", "/usr/local/openmpi*/bin/mpirun",
+             "~/openmpi*/bin/mpirun", "~/*/openmpi*/bin/mpirun", "~/local/openmpi*/bin/mpirun",
+             "/usr/local/bin/mpirun", "/usr/bin/mpirun"]
+
+
+def find_mpirun() -> list[str]:
+    """Quick search for OpenMPI's mpirun: PATH first, then the usual install places (no deep walk)."""
+    import glob
+    out = []
+    w = shutil.which("mpirun")
+    if w:
+        out.append(os.path.realpath(w))
+    # the mpirun your terminal uses (login shell + .bashrc); only read here to find the folder once
+    try:
+        r = subprocess.run(["bash", "-lic", "command -v mpirun"], capture_output=True, text=True, timeout=15,
+                           stdin=subprocess.DEVNULL)
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if line.startswith("/") and is_exec(line) and os.path.realpath(line) not in out:
+                out.insert(0, os.path.realpath(line))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for pat in MPI_GLOBS:
+        for p in sorted(glob.glob(os.path.expanduser(pat)), reverse=True):
+            rp = os.path.realpath(p)
+            if is_exec(rp) and rp not in out:
+                out.append(rp)
+    return out
+
+
+def mpirun_version(mpirun: str) -> str | None:
+    try:
+        r = subprocess.run([mpirun, "--version"], capture_output=True, text=True, timeout=20)
+        m = re.search(r"(\d+\.\d+\.\d+)", (r.stdout or "") + (r.stderr or ""))
+        return m.group(1) if m else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def autofill_openmpi() -> str | None:
+    """If the OpenMPI folder is not set, fill it in from the first mpirun found (preferring 4.1.x,
+    the version ORCA 6.0.1 is built for). Returns the folder chosen, or None."""
+    s = config.load_settings()
+    if s["programs"].get("openmpi_bin"):
+        return None
+    cands = find_mpirun()
+    if not cands:
+        return None
+    best = next((c for c in cands if (mpirun_version(c) or "").startswith("4.1")), cands[0])
+    s["programs"]["openmpi_bin"] = str(Path(best).parent)
+    config.save_settings(s)
+    return s["programs"]["openmpi_bin"]
+
+
 def autodetect() -> dict:
     """Search $HOME, /opt, /usr/local and PATH for ORCA, OpenMPI, xtb, Multiwfn, NBO, mep.py."""
     found: dict[str, list[str]] = {k: [] for k in ("orca", "openmpi_bin", "xtb", "multiwfn", "nbo", "mep")}

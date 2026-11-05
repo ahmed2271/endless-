@@ -47,7 +47,7 @@ def test_restart_recovers(studio, tmp_path):
         assert all(r["ok"] for r in api.post(f"/api/batches/{b['id']}/upload", files=files).json())
         r = api.post(f"/api/batches/{b['id']}/run", json={"force": True})
         assert r.status_code == 200, r.text
-        assert wait_for(lambda: api.get("/api/status").json()["running"] == 2, 20)
+        assert wait_for(lambda: len([t for t in api.get("/api/queue").json()["running"] if t["pid"]]) == 2, 20)
         running = api.get("/api/queue").json()["running"]
         pids = [t["pid"] for t in running]
         # stop the service (ORCA jobs keep running, like systemd KillMode=process)

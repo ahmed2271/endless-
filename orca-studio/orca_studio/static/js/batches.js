@@ -10,7 +10,7 @@ App.register("batches", async (main) => {
     const list = await App.get("/api/batches");
     wrap.innerHTML = "";
     if (!list.length) { wrap.append(h("p", {style: {padding: "16px"}}, "No batches yet. Press ", h("b", null, "+ New batch"), " to start.")); return; }
-    wrap.append(h("table", null, h("tr", null, ["Batch", "Profile", "Molecules", "Progress", "Status", "Created"].map(x => h("th", null, x))),
+    wrap.append(h("table", null, h("tr", null, ["Batch", "Profile", "Molecules", "Progress", "Status", "Created", ""].map(x => h("th", null, x))),
       list.map(b => {
         const s = b.summary, tot = Object.values(s).reduce((a, c) => a + c, 0);
         return h("tr", {class: "clickable", onclick: () => location.hash = `#/batch/${b.id}`},
@@ -18,7 +18,8 @@ App.register("batches", async (main) => {
           h("td", {class: "small"}, b.kind === "external" ? "(analysed folder)" : `${b.calc_profile_id || ""} v${b.calc_profile_version || ""}`),
           h("td", null, b.molecules),
           h("td", {class: "small"}, tot ? `${s.done || 0}/${tot} done` + (s.failed ? `, ${s.failed} failed` : "") + (s.running ? `, ${s.running} running` : "") : ""),
-          h("td", null, pill(b.status)), h("td", {class: "small muted"}, fmtTime(b.created)));
+          h("td", null, pill(b.status)), h("td", {class: "small muted"}, fmtTime(b.created)),
+          h("td", null, h("button", {class: "small danger", title: "Delete batch", onclick: async e => { e.stopPropagation(); if (await Batch.deleteDialog(b)) draw(); }}, "Delete…")));
       })));
   };
   await draw();
@@ -195,7 +196,13 @@ const Batch = {
     root.append(h("div", {class: "row small mono", style: {marginBottom: "6px"}}, folder), h("div", {class: "cols"},
       h("div", {class: "card", style: {padding: 0}}, h("table", null, list.map(f => h("tr", {class: "clickable", onclick: () => f.dir ? Batch.files(root, f.path) : Batch.showFile(viewer, f)},
         h("td", null, (f.dir ? "📁 " : "") + f.name), h("td", {class: "num small muted"}, f.dir ? "" : (f.size / 1024).toFixed(1) + " kB"),
-        h("td", null, f.dir ? null : h("a", {class: "btn small", href: `/api/file?download=1&path=${encodeURIComponent(f.path)}`, onclick: e => e.stopPropagation()}, "⬇")))),
+        h("td", null, h("span", {class: "row", style: {flexWrap: "nowrap", gap: "4px"}},
+          f.dir ? null : h("a", {class: "btn small", href: `/api/file?download=1&path=${encodeURIComponent(f.path)}`, onclick: e => e.stopPropagation()}, "⬇"),
+          h("button", {class: "small danger", title: "Delete", onclick: async e => {
+            e.stopPropagation();
+            if (!await App.confirm("Delete", `Delete ${f.dir ? "the folder" : ""} ${f.name}${f.dir ? " and everything in it" : ""}? This cannot be undone.`, "Delete", true)) return;
+            await App.del(`/api/file?path=${encodeURIComponent(f.path)}`); App.toast("Deleted"); Batch.files(root, folder);
+          }}, "🗑"))))),
         h("tr", {class: "clickable", onclick: () => Batch.files(root, folder.replace(/\/[^/]+\/?$/, ""))}, h("td", {colspan: 3, class: "muted"}, "⬆ up")))),
       viewer));
   },
@@ -220,12 +227,34 @@ const Batch = {
     root.append(h("div", {class: "card"}, h("h2", {style: {marginTop: 0}}, "Exports"),
       h("label", {class: "row"}, h("input", {type: "checkbox", checked: opts.auto_export, onchange: async e => { await App.patch(`/api/batches/${b.id}`, {options: {auto_export: e.target.checked}}); App.toast("Saved"); }}),
         "Re-export CSV and Excel automatically whenever results change")));
-    root.append(h("div", {class: "card"}, h("h2", {style: {marginTop: 0}}, "Remove batch"),
-      h("p", {class: "help"}, "Removes the batch from the app's list. Calculation files on disk are not deleted."),
-      h("button", {class: "danger", onclick: async () => {
-        if (!await App.confirm("Remove batch", `Remove "${b.name}" from ORCA Studio? Files in ${b.folder} are kept.`, "Remove", true)) return;
-        await App.del(`/api/batches/${b.id}`); location.hash = "#/batches";
-      }}, "Remove from list")));
+    root.append(h("div", {class: "card"}, h("h2", {style: {marginTop: 0}}, "Delete batch"),
+      h("p", {class: "help"}, "Remove the batch from ORCA Studio, and optionally delete its folder with all calculation files."),
+      h("button", {class: "danger", onclick: async () => { if (await Batch.deleteDialog(b)) location.hash = "#/batches"; }}, "Delete batch…")));
+  },
+
+  async deleteDialog(b) {
+    if (["running", "paused", "review", "stopped"].includes(b.status) && b.kind !== "external") {
+      App.toast("Cancel the batch first (running jobs must be stopped before deleting).", "error");
+      return false;
+    }
+    let mode = "list";
+    const sure = h("input", {type: "checkbox"});
+    const ext = b.kind === "external";
+    const body = h("div", {style: {display: "grid", gap: "10px"}},
+      h("label", {class: "row", style: {flexWrap: "nowrap", alignItems: "flex-start"}}, h("input", {type: "radio", name: "delmode", checked: true, onchange: () => mode = "list"}),
+        h("span", {style: {flex: 1, minWidth: 0}}, h("b", null, "Remove from the list only"), h("div", {class: "small muted"}, "All files stay on disk."))),
+      ext ? h("div", {class: "small muted"}, "This is an analysed folder of your own .out files; ORCA Studio never deletes those.") :
+        h("label", {class: "row", style: {flexWrap: "nowrap", alignItems: "flex-start"}}, h("input", {type: "radio", name: "delmode", onchange: () => mode = "files"}),
+          h("span", {style: {flex: 1, minWidth: 0}}, h("b", {style: {color: "var(--err)"}}, "Delete the batch and its folder"),
+            h("div", {class: "small mono", style: {wordBreak: "break-all"}}, b.folder),
+            h("div", {class: "small muted"}, "Every input, output, cube and export in this folder is deleted. This cannot be undone. Your original files elsewhere are not touched."))),
+      ext ? null : h("label", {class: "row small"}, sure, "I understand the folder will be deleted"));
+    const r = await App.modal(`Delete batch "${b.name}"`, body, [{label: "Cancel", value: false}, {label: "Delete", class: "danger", onclick: async () => {
+      if (mode === "files" && !sure.checked) { App.toast("Tick the box to confirm deleting the folder", "error"); return false; }
+      return App.del(`/api/batches/${b.id}${mode === "files" ? "?delete_files=1" : ""}`);
+    }}]);
+    if (r) App.toast(r.note);
+    return !!r;
   },
 
   async molecule(main, bid, mid) {

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from . import config
@@ -58,9 +59,10 @@ def validate(profile: dict, molecules: list[dict] | None = None, extraction_prof
 
     if not program_ok(s["programs"].get("orca", "")):
         issues.append(_issue("error", f"ORCA not found at {s['programs'].get('orca')}: fix it in Settings"))
-    if not s["programs"].get("openmpi_bin"):
+    if not s["programs"].get("openmpi_bin") and not shutil.which("mpirun"):
         if any(assemble(profile, i, None, catalog=cat, settings=s)["nprocs"] > 1 for i in range(len(steps))):
-            issues.append(_issue("warning", "OpenMPI bin folder is not set: parallel (PAL > 1) jobs will fail"))
+            issues.append(_issue("warning", "mpirun (OpenMPI) was not found automatically: if parallel jobs fail, "
+                                            "set the OpenMPI bin folder in Settings"))
 
     for i, step in enumerate(steps):
         label = f"Step {i + 1} ({step.get('name') or step.get('type')})"
