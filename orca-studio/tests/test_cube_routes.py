@@ -9,6 +9,7 @@ def test_orca_plot_loop_falls_back_to_plots(studio, monkeypatch):
     from orca_studio import batches, db, store, visuals
     from orca_studio.runner import Runner
     monkeypatch.setenv("FAKE_ORCA_PLOT_LOOP", "1")
+    db.kv_set("cube_route", "orca_plot")          # as if orca_plot had worked before
     p = store.get_item("calc_profiles", "preopt_r2scan_optfreq_b3lyp")
     p["steps"][1]["workflow"] = {"cubes": {"orbitals": ["HOMO", "LUMO"], "densities": True, "grid": 20}}
     store.save_calc_profile(p)
@@ -40,3 +41,26 @@ def test_orca_plot_loop_falls_back_to_plots(studio, monkeypatch):
     (sd / "cubes" / "orca_plot_mo.log").unlink()
     done, errors = visuals.make_cubes(m, 1, [{"kind": "mo", "label": "HOMO-1"}], 20)
     assert not errors and done[0]["route"] == "plots" and not (sd / "cubes" / "orca_plot_mo.log").exists()
+
+
+def test_plots_first_and_diagnose(studio, monkeypatch):
+    from orca_studio import batches, db, visuals
+    from orca_studio.runner import Runner
+    from conftest import DATA, wait_for
+    b = batches.create("diag", "preopt_r2scan_optfreq_b3lyp", None, None)
+    batches.add_molecules(b["id"], [("water.xyz", (DATA / "structures" / "water.xyz").read_bytes())])
+    r = Runner(); r.start()
+    try:
+        r.run_batch(b["id"])
+        assert wait_for(lambda: batches.get(b["id"])["status"] == "done", 60)
+    finally:
+        r.stop()
+    m = batches.molecules(b["id"])[0]
+    done, errors = visuals.make_cubes(m, 1, [{"kind": "mo", "label": "HOMO"}], 20)
+    assert not errors and done[0]["route"] == "plots"           # plain ORCA input is the first choice
+    sd, _ = visuals.step_paths(m, 1)
+    assert "made: HOMO_a_g20.cube" in (sd / "cubes" / "cubes_report.txt").read_text()
+    monkeypatch.setenv("FAKE_ORCA_PLOT_LOOP", "1")
+    rep = visuals.diagnose(m, 1, 20)
+    assert rep["plots"]["ok"] and not rep["orca_plot"]["ok"] and "repeating its menu" in rep["orca_plot"]["problem"]
+    assert "%plots" in rep["plots"]["input"] and rep["ok"]

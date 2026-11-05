@@ -104,7 +104,8 @@ def list_cubes(m: dict, k: int) -> list[dict]:
     return [dict(v, name=n, path=str(sd / "cubes" / n)) for n, v in idx.items() if (sd / "cubes" / n).exists()]
 
 
-def orca_plot_raw(sd: Path, gbw: str, answers: str, timeout: float = 900, max_log: int = 2_000_000) -> tuple[list[Path], str, str]:
+def orca_plot_raw(sd: Path, gbw: str, answers: str, timeout: float = 900, max_log: int = 2_000_000,
+                  silent: float = 180) -> tuple[list[Path], str, str]:
     """Run 'orca_plot gbw -i' with menu answers on stdin, with a watchdog.
 
     orca_plot repeats its menu forever when an answer does not fit; the watchdog stops it as soon as
@@ -126,9 +127,16 @@ def orca_plot_raw(sd: Path, gbw: str, answers: str, timeout: float = 900, max_lo
         except (BrokenPipeError, OSError):
             pass
         t0 = time.time()
+        last_size, last_change = 0, time.time()
         while proc.poll() is None:
             time.sleep(0.2)
-            if log_path.stat().st_size > max_log:
+            size = log_path.stat().st_size
+            if size != last_size or any(p.name not in before for p in sd.glob("*.cube")):
+                last_size, last_change = size, time.time()
+            if time.time() - last_change > silent:
+                problem = f"orca_plot printed nothing for {int(silent)} s and wrote no cube (probably waiting for an answer it did not get)"
+                break
+            if size > max_log:
                 problem = "orca_plot kept repeating its menu: the menu answers in Libraries → orca_plot do not fit this orca_plot version"
                 break
             if time.time() - t0 > timeout:
@@ -280,7 +288,7 @@ def make_cubes(m: dict, k: int, requests: list[dict], grid: int = 80, force: boo
     if not todo:
         return done, errors
     (sd / "cubes").mkdir(exist_ok=True)
-    pref = db.kv_get("cube_route", "orca_plot")
+    pref = db.kv_get("cube_route", "plots")
     order = [pref] + [r for r in ("orca_plot", "plots") if r != pref]
 
     def record(sp, path, route):
@@ -302,7 +310,7 @@ def make_cubes(m: dict, k: int, requests: list[dict], grid: int = 80, force: boo
                     db.kv_set("cube_route", "orca_plot")
                 except RuntimeError as e:
                     problems.setdefault(sp["name"], []).append(f"orca_plot: {e}")
-                    if "repeating its menu" in str(e) or "not found" in str(e):
+                    if any(w in str(e) for w in ("repeating its menu", "not found", "printed nothing", "did not finish")):
                         break          # the menu answers do not fit at all: do not try the other cubes
             remaining = [sp for sp in remaining if not (sd / "cubes" / sp["name"]).exists()]
         else:
@@ -327,7 +335,52 @@ def make_cubes(m: dict, k: int, requests: list[dict], grid: int = 80, force: boo
     _save_index(sd, idx)
     for sp in remaining:
         errors.append(f"{sp['name'].replace('.cube', '')}: " + " | ".join(problems.get(sp["name"], ["failed"])))
+    with open(sd / "cubes" / "cubes_report.txt", "a") as fh:
+        fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  made: {', '.join(d['name'] for d in done if not d.get('cached')) or '-'}\n")
+        for e in errors:
+            fh.write(f"    PROBLEM {e}\n")
     return done, errors
+
+
+def diagnose(m: dict, k: int, grid: int = 40) -> dict:
+    """Try both cube routes for the HOMO in a scratch folder and return everything they printed."""
+    sd, base = step_paths(m, k)
+    if not (sd / f"{base}.gbw").exists():
+        return {"ok": False, "summary": "the .gbw file of this step was not kept (Files to keep = minimal?)"}
+    o = load_out(sd / f"{base}.out")
+    homo = o.orbital_index("homo", 0) if o and o.orbitals else 0
+    rep = {"homo_index": homo, "step_dir": str(sd)}
+    d = sd / "cubes" / "_diagnose"
+    if d.exists():
+        shutil.rmtree(d)
+    d.mkdir(parents=True)
+    for f in (f"{base}.gbw", f"{base}.inp", f"{base}.out", f"{base}.xyz", "input.xyz", f"{base}.densities", f"{base}.densitiesinfo"):
+        if (sd / f).exists():
+            shutil.copy2(sd / f, d / f)
+    e = store.get_entry("orca_plot", "mo") or {"orca_text": ""}
+    answers = e["orca_text"].replace("{index}", str(homo)).replace("{operator}", "0").replace("{grid}", str(grid))
+    new, text, problem = orca_plot_raw(d, f"{base}.gbw", answers, timeout=300, silent=60)
+    rep["orca_plot"] = {"ok": bool(new), "problem": problem, "answers": answers, "log": text[-15000:]}
+    try:
+        got = run_plots_route(d, base, [{"kind": "mo", "file": "diag_homo.cube", "index": homo, "operator": 0},
+                                         {"kind": "density", "file": "diag_density.cube"}], grid)
+        rep["plots"] = {"ok": True, "made": sorted(got)}
+    except RuntimeError as ex:
+        rep["plots"] = {"ok": False, "problem": str(ex)}
+    pr = d / "cubes" / "_plot_run"
+    rep["plots"]["input"] = (pr / "plot.inp").read_text() if (pr / "plot.inp").exists() else ""
+    rep["plots"]["output_tail"] = "\n".join((pr / "plot.out").read_text(errors="replace").splitlines()[-60:]) if (pr / "plot.out").exists() else ""
+    s = config.load_settings()
+    mep = s.get("script_paths", {}).get("mep", "")
+    rep["mep_script"] = mep or "(not set in Settings)"
+    rep["ok"] = rep["orca_plot"]["ok"] or rep["plots"]["ok"]
+    rep["summary"] = ("orca_plot: " + ("works" if rep["orca_plot"]["ok"] else f"FAILED ({problem})") + "; %plots route: "
+                      + ("works" if rep["plots"]["ok"] else "FAILED") + f"; mep.py: {rep['mep_script']}")
+    rep_txt = d / "diagnose_report.txt"
+    import json
+    rep_txt.write_text(json.dumps(rep, indent=1))
+    rep["report_file"] = str(rep_txt)
+    return rep
 
 
 def make_cube(m: dict, k: int, kind: str, grid: int = 80, label: str | None = None, operator: int = 0,

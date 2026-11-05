@@ -59,6 +59,17 @@ const Visuals = {
           h("button", {onclick: () => make([{kind: "tddft_transition", state: st.state}])}, "Transition density")) : null,
         h("h3", null, "Atoms coloured by charge"),
         await Visuals.chargePicker(b, m, vbox),
+        h("h3", null, "Cubes not appearing?"),
+        h("div", {class: "row"}, h("button", {class: "small", onclick: async e => {
+          e.target.disabled = true; e.target.textContent = "Testing both ways of making cubes (about a minute)…";
+          const r = await App.post(`/api/molecules/${m.id}/cube_diagnose`, {step: st.step});
+          e.target.disabled = false; e.target.textContent = "Diagnose cubes";
+          const txt = JSON.stringify(r, null, 1);
+          App.modal("Cube diagnosis", h("div", null, h("div", {class: "msg " + (r.ok ? "ok" : "error")}, r.summary),
+            h("p", {class: "help"}, "Copy this text (or send the file " + (r.report_file || "") + ") so the menu answers or the %plots text can be corrected."),
+            h("button", {class: "small", onclick: () => navigator.clipboard?.writeText(txt).then(() => App.toast("Copied"))}, "Copy everything"),
+            h("pre", {style: {maxHeight: "55vh", marginTop: "6px"}}, txt)), [{label: "Close"}], true);
+        }}, "Diagnose cubes")),
         h("div", {class: "row", style: {marginTop: "6px"}}, h("button", {class: "small", title: "Runs orca_chelpg on the saved .gbw; no need to rerun the job", onclick: async () => {
           const r = await App.post(`/api/molecules/${m.id}/chelpg`, {step: st.step});
           App.toast(`CHELPG charges added (${r.charges.length} atoms). Use a CHELPG charges field to see them in Results.`);

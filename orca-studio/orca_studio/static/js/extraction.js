@@ -10,6 +10,18 @@ App.register("extraction", async (main, id) => {
     }}, "+ New profile")));
   main.append(h("p", {class: "help"}, "An extraction profile lists what to read from one calculation step: each field becomes a column (or a sub-table) in a batch's results. Every step type has a default (Optimization, Opt + Freq, Single point, Excited states, ΔSCF); choose another one per step in the calculation profile, or per batch in its Results tab."));
   const list = await App.get("/api/items/extraction_profiles");
+  const stLib = await App.get("/api/libraries/step_types");
+  const defCard = h("div", {class: "card"}, h("h2", {style: {marginTop: 0}}, "Which profile each step type uses"),
+    h("p", {class: "help"}, "Every step of a batch reads its values with the profile chosen here for its step type, unless the step (in the calculation profile) or the batch (Results tab) chooses another one."));
+  const grid = h("div", {class: "form-grid", style: {gridTemplateColumns: "minmax(170px, max-content) minmax(260px, 420px)"}});
+  for (const e of stLib.entries.filter(x => !x.hidden)) {
+    grid.append(h("div", {class: "lbl"}, e.label), W.select([{value: "", label: "(nothing)"}, ...list.map(x => ({value: x.id, label: x.name || x.id}))], e.default_extraction || "", async v => {
+      e.default_extraction = v;
+      await App.put("/api/libraries/step_types", stLib); App.toast(`${e.label} steps now use ${(list.find(x => x.id === v) || {}).name || "nothing"}`);
+    }));
+  }
+  defCard.append(grid);
+  main.append(defCard, h("h2", null, "All extraction profiles"));
   main.append(h("div", {class: "card", style: {padding: 0}}, h("table", null, h("tr", null, ["Name", "Fields", ""].map(x => h("th", null, x))),
     list.map(p => h("tr", {class: "clickable", onclick: () => location.hash = `#/extraction/${p.id}`},
       h("td", null, h("b", null, p.name || p.id), h("div", {class: "small muted"}, p.description || "")),
@@ -153,8 +165,12 @@ const Ext = {
       // every simple field, grouped; charges listed per scheme
       const SKIP = new Set(["bond_length", "angle", "dihedral", "charge_on", "spin_on", "orbital", "bond_order", "brightest", "brightest_fosc", "charges", "spin_populations", "scheme_spread", "bond_orders", "imag_count"]);
       const items = [];
+      SKIP.add("orbitals");
       for (const b of Ext.builtins) if (!SKIP.has(b.id)) items.push({group: b.group, label: b.label + (b.shape === "table" ? " (table)" : ""), make: () => ({builtin: b.id, name: b.label})});
       const add = (group, label, make) => items.push({group, label, make});
+      for (const n of [1, 2, 3]) add("Orbitals and spin", `HOMO−${n} energy`, () => ({builtin: "orbital", name: `HOMO-${n}`, unit: "eV", params: {which: "homo", n}}));
+      for (const n of [1, 2, 3]) add("Orbitals and spin", `LUMO+${n} energy`, () => ({builtin: "orbital", name: `LUMO+${n}`, unit: "eV", params: {which: "lumo", n}}));
+      add("Orbitals and spin", "Orbital energies and occupations, all orbitals (table)", () => ({builtin: "orbitals", name: "Orbital energies"}));
       add("Thermochemistry", "Imaginary frequencies (count)", () => ({builtin: "imag_count", name: "Imaginary freq.", params: {threshold: 0}}));
       for (const [sch, lab] of [["hirshfeld", "Hirshfeld"], ["mbis", "MBIS"], ["chelpg", "CHELPG"], ["resp", "RESP"], ["npa", "NPA (needs NBO)"], ["mulliken", "Mulliken"], ["loewdin", "Löwdin"]])
         add("Charges", `${lab} charges (table)`, () => ({builtin: "charges", name: `${lab.replace(" (needs NBO)", "")} charges`, params: {scheme: sch}}));

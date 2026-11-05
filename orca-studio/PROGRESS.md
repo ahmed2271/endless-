@@ -127,6 +127,15 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   old whole-run starter choices on existing batches/profiles (they would duplicate every value).
   Tests: tests/test_per_step_extraction.py rewritten, migration test. 35 passed.
 
+- Feedback round 6 (2026-11-05): no cubes / MEP on the workstation. Cube making now tries the %plots
+  route (plain ORCA input) first and orca_plot second; the orca_plot watchdog also stops it after
+  180 s of silence and a stuck orca_plot is no longer retried for every cube; every attempt is written
+  to cubes/cubes_report.txt; "Diagnose cubes" (molecule page) runs both routes on the HOMO and shows
+  all input/output for fixing. Extraction: HOMO−1..3 / LUMO+1..3 and the full orbital table in the
+  field list; Extraction profiles page shows and edits which profile each step type uses. Dialogs
+  close on navigation. 36 passed. Root cause of the missing cubes on the workstation still unknown:
+  waiting for the Diagnose output.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

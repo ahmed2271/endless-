@@ -80,6 +80,12 @@ def mol_make_cubes(mid: int, data: dict = Body(...)):
     return {"cubes": made, "errors": errors}
 
 
+@router.post("/api/molecules/{mid}/cube_diagnose")
+def mol_cube_diagnose(mid: int, data: dict = Body(default={})):
+    m = _mol(mid)
+    return visuals.diagnose(m, _step(m, data.get("step")))
+
+
 @router.post("/api/molecules/{mid}/mep")
 def mol_mep(mid: int, data: dict = Body(default={})):
     m = _mol(mid)

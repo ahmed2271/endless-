@@ -104,6 +104,7 @@ const App = {
   register(name, fn) { App.pages[name] = fn; },
   async route() {
     App.timers.forEach(clearInterval); App.timers = [];
+    document.querySelectorAll(".modal-bg").forEach(m => m.remove());
     const hash = location.hash.replace(/^#\/?/, "") || "batches";
     const parts = hash.split("/");
     const page = parts[0].split("?")[0];
