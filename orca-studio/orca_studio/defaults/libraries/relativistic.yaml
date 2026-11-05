@@ -1,0 +1,7 @@
+id: relativistic
+label: Relativistic
+entries:
+- {id: none, label: None, orca_text: '', destination: none}
+- {id: zora, label: ZORA, orca_text: ZORA, tags: ['exclusive:relativistic']}
+- {id: dkh, label: DKH, orca_text: DKH, tags: ['exclusive:relativistic']}
+- {id: x2c, label: X2C, orca_text: X2C, tags: ['exclusive:relativistic']}

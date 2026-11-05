@@ -1,0 +1,10 @@
+id: trust
+label: Trust radius
+type: number
+destination: block:geom
+template: Trust {value}
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

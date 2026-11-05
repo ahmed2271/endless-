@@ -1,0 +1,8 @@
+id: charge_offset
+label: Charge change
+type: number
+special: charge_offset
+applies_to:
+- all
+notes: Added to the molecule charge in the * xyzfile line (e.g. +1 / -1 for Fukui)
+default: ''

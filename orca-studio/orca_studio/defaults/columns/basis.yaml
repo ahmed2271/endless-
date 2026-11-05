@@ -1,0 +1,11 @@
+id: basis
+label: Basis
+type: dropdown
+library:
+- basis_sets
+- relativistic_basis
+slot: basis
+applies_to:
+- all
+- '!xtb'
+default: ''

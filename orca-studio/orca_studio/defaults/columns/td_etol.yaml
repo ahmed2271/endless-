@@ -1,0 +1,13 @@
+id: td_etol
+label: TDDFT energy tolerance
+type: number
+destination: block:tddft
+template: ETol {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

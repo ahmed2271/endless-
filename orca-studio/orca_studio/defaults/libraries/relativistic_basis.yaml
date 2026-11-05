@@ -1,0 +1,6 @@
+id: relativistic_basis
+label: Relativistic basis sets
+entries:
+- {id: zoradef2tzvp, label: ZORA-def2-TZVP, orca_text: ZORA-def2-TZVP, elements: H-Kr, notes: Use with ZORA}
+- {id: sarczoratzvp, label: SARC-ZORA-TZVP, orca_text: SARC-ZORA-TZVP, elements: 'Rb-Rn,La-Lu', notes: 'Heavy elements; combine with ZORA-def2-TZVP for light atoms'}
+- {id: dkhdef2tzvp, label: DKH-def2-TZVP, orca_text: DKH-def2-TZVP, elements: H-Kr, notes: Use with DKH}

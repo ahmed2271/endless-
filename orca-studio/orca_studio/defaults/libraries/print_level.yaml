@@ -1,0 +1,6 @@
+id: print_level
+label: Print level
+entries:
+- {id: miniprint, label: MiniPrint, orca_text: MiniPrint, tags: ['exclusive:print']}
+- {id: normalprint, label: NormalPrint, orca_text: NormalPrint, tags: ['exclusive:print']}
+- {id: largeprint, label: LargePrint, orca_text: LargePrint, tags: ['exclusive:print']}

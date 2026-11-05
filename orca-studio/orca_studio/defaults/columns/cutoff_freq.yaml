@@ -1,0 +1,12 @@
+id: cutoff_freq
+label: QRRHO cutoff (cm-1)
+type: number
+destination: block:freq
+template: CutOffFreq {value}
+applies_to:
+- opt_freq
+- freq
+tags:
+- unverified
+notes: '[VERIFY] Appendix D check 3'
+default: ''

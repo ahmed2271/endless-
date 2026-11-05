@@ -1,0 +1,9 @@
+id: polar
+label: Polarizability
+type: toggle
+destination: block:elprop
+template: Polar 1
+applies_to:
+- all
+- '!xtb'
+default: ''

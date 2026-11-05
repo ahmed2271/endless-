@@ -1,0 +1,11 @@
+id: scf_helpers
+label: SCF helpers
+type: dropdown
+library:
+- scf_helpers
+slot: scf
+multi: true
+applies_to:
+- all
+- '!xtb'
+default: ''

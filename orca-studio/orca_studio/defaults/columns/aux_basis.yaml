@@ -1,0 +1,10 @@
+id: aux_basis
+label: Auxiliary basis
+type: dropdown
+library:
+- aux_basis
+slot: aux
+applies_to:
+- all
+- '!xtb'
+default: ''

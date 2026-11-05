@@ -1,0 +1,14 @@
+id: irootmult
+label: Root multiplicity
+type: text
+destination: block:tddft
+template: IRootMult {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+notes: Singlet or Triplet
+default: ''

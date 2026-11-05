@@ -1,0 +1,8 @@
+id: nprocs
+label: Cores
+type: number
+special: nprocs
+applies_to:
+- all
+notes: Cores per job (%pal). Blank = profile default
+default: ''

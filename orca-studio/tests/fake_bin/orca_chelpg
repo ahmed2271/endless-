@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Stand-in for orca_chelpg (tests only): prints a CHELPG table for {basename}.gbw."""
+import sys
+
+base = sys.argv[1][:-4]
+lines = open(f"{base}.xyz").read().splitlines()
+n = int(lines[0])
+atoms = [l.split()[0] for l in lines[2:2 + n]]
+q = [(-0.8 if a == "O" else 0.4 if a == "H" else 0.1) for a in atoms]
+q = [x - sum(q) / n for x in q]
+print("--------------------------------\nCHELPG Charges            \n--------------------------------")
+for i, (a, x) in enumerate(zip(atoms, q)):
+    print(f"{i:3d}   {a:<2s}  :     {x:10.6f}")
+print("--------------------------------\nTotal charge:    0.000000\n--------------------------------")

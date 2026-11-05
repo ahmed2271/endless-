@@ -1,0 +1,10 @@
+id: relativistic
+label: Relativistic
+type: dropdown
+library:
+- relativistic
+slot: relativistic
+applies_to:
+- all
+- '!xtb'
+default: ''

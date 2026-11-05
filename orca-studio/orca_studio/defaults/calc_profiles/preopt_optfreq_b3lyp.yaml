@@ -1,0 +1,21 @@
+name: Pre-opt → Opt + Freq (B3LYP D3BJ def2-SVP)
+description: GFN2-xTB pre-optimization, then B3LYP-D3(BJ)/def2-SVP optimization and frequencies.
+version: 3
+extraction_profile: ''
+columns:
+- {column: method}
+- {column: basis}
+- {column: dispersion}
+- {column: populations}
+- {column: opt_convergence}
+defaults: {}
+resources: {nprocs: 2, maxcore: 1000}
+steps:
+- name: XTB pre-opt
+  slug: xtb_preopt
+  type: xtb_preopt
+  values: {method: xtb2, opt_convergence: looseopt}
+- name: Opt + Freq
+  slug: opt_freq
+  type: opt_freq
+  values: {method: b3lyp, basis: def2svp, dispersion: d3bj, populations: [hirshfeld, mbis]}

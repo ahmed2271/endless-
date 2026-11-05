@@ -1,0 +1,14 @@
+name: Opt + Freq (thermochemistry)
+description: For Opt + Freq and Freq steps - energy, G, H, ZPE, imaginary frequencies, convergence.
+use_for: step
+version: 1
+fields:
+- {id: E, name: Energy, kind: builtin, builtin: final_energy, unit: Eh}
+- {id: G, name: G, kind: builtin, builtin: total_gibbs, unit: Eh}
+- {id: H, name: H, kind: builtin, builtin: total_enthalpy, unit: Eh}
+- {id: ZPE, name: ZPE, kind: builtin, builtin: zpe, unit: kcal/mol, decimals: 2}
+- {id: Gcorr, name: G − E, kind: builtin, builtin: gibbs_correction, unit: kcal/mol, decimals: 2}
+- {id: nimag, name: Imaginary freq., kind: builtin, builtin: imag_count, params: {threshold: 0}}
+- {id: lowfreq, name: Lowest freq. (cm⁻¹), kind: builtin, builtin: lowest_freq, decimals: 1}
+- {id: optconv, name: Opt converged, kind: builtin, builtin: opt_converged}
+- {id: relG, name: Relative G, kind: formula, expr: relsame(G), unit_kind: energy, unit: kcal/mol, decimals: 2}

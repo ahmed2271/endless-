@@ -1,0 +1,11 @@
+id: copt
+label: Cartesian coordinates
+type: toggle
+destination: keyword_line
+template: COpt
+slot: job
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

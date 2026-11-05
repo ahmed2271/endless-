@@ -1,0 +1,12 @@
+id: opt_target
+label: Optimization target
+type: dropdown
+library:
+- opt_target
+slot: job
+replaces_tokens:
+- Opt
+applies_to:
+- opt
+- opt_freq
+default: ''

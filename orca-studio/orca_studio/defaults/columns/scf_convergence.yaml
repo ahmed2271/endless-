@@ -1,0 +1,10 @@
+id: scf_convergence
+label: SCF convergence
+type: dropdown
+library:
+- scf_convergence
+slot: scf
+applies_to:
+- all
+- '!xtb'
+default: ''

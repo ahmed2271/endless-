@@ -1,0 +1,19 @@
+# elements = element coverage used by validation (ranges like H-Rn, comma separated).
+id: basis_sets
+label: Basis sets
+entries:
+- {id: def2svp, label: def2-SVP, orca_text: def2-SVP, elements: H-Rn}
+- {id: def2tzvp, label: def2-TZVP, orca_text: def2-TZVP, elements: H-Rn}
+- {id: def2tzvpp, label: def2-TZVPP, orca_text: def2-TZVPP, elements: H-Rn}
+- {id: def2qzvp, label: def2-QZVP, orca_text: def2-QZVP, elements: H-Rn}
+- {id: def2svpd, label: def2-SVPD, orca_text: def2-SVPD, elements: H-Rn}
+- {id: def2tzvpd, label: def2-TZVPD, orca_text: def2-TZVPD, elements: H-Rn}
+- {id: madef2svp, label: ma-def2-SVP, orca_text: ma-def2-SVP, elements: H-Rn}
+- {id: madef2tzvp, label: ma-def2-TZVP, orca_text: ma-def2-TZVP, elements: H-Rn}
+- {id: ccpvdz, label: cc-pVDZ, orca_text: cc-pVDZ, elements: 'H-Ar,Ca-Kr'}
+- {id: ccpvtz, label: cc-pVTZ, orca_text: cc-pVTZ, elements: 'H-Ar,Ca-Kr'}
+- {id: augccpvtz, label: aug-cc-pVTZ, orca_text: aug-cc-pVTZ, elements: 'H-Ar,Sc-Kr'}
+- {id: p631gd, label: 6-31G(d), orca_text: 6-31G(d), elements: H-Kr}
+- {id: p6311pgdp, label: 6-311+G(d,p), orca_text: 6-311+G(d,p), elements: 'H-Ar,Ga-Kr'}
+- {id: pcseg1, label: pcseg-1, orca_text: pcseg-1, elements: H-Kr}
+- {id: pcseg2, label: pcseg-2, orca_text: pcseg-2, elements: H-Kr}

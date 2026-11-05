@@ -1,0 +1,16 @@
+id: solvents
+label: Solvents
+entries:
+- {id: water, label: Water, orca_text: water}
+- {id: methanol, label: Methanol, orca_text: methanol}
+- {id: ethanol, label: Ethanol, orca_text: ethanol}
+- {id: acetonitrile, label: Acetonitrile, orca_text: acetonitrile}
+- {id: dmso, label: DMSO, orca_text: DMSO}
+- {id: dmf, label: DMF, orca_text: DMF}
+- {id: acetone, label: Acetone, orca_text: acetone}
+- {id: dcm, label: Dichloromethane, orca_text: CH2Cl2}
+- {id: chloroform, label: Chloroform, orca_text: chloroform}
+- {id: thf, label: THF, orca_text: THF}
+- {id: toluene, label: Toluene, orca_text: toluene}
+- {id: benzene, label: Benzene, orca_text: benzene}
+- {id: hexane, label: Hexane, orca_text: hexane}

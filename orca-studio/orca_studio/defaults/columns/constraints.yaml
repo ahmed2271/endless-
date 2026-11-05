@@ -1,0 +1,14 @@
+id: constraints
+label: Constraints
+type: text
+destination: block:geom
+template: |-
+  Constraints
+  {value}
+  end
+applies_to:
+- opt
+- opt_freq
+- xtb
+notes: e.g. {B 0 1 C}; one per line
+default: ''

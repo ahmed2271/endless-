@@ -1,0 +1,16 @@
+*************************************************
+$Calculation_Status
+   &GeometryIndex 1
+   &VERSION [&Type "String"] "6.0.1"
+   &STATUS [&Type "String"] "NORMAL TERMINATION"
+$End
+$SCF_Energy
+   &GeometryIndex 1
+   &ListStatus       LAST
+   &SCF_ENERGY [&Type "Double"]      -4.2152999999999999e+01
+$End
+$Single_Point_Data
+   &FINALENERGY [&Type "Double"]      -4.2152999999999999e+01
+   &CHARGE [&Type "Integer"] 0
+   &MULT [&Type "Integer"] 1
+$End

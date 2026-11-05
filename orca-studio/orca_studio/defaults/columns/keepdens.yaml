@@ -1,0 +1,10 @@
+id: keepdens
+label: Keep density
+type: toggle
+destination: keyword_line
+template: KeepDens
+slot: properties
+applies_to:
+- all
+- '!xtb'
+default: ''

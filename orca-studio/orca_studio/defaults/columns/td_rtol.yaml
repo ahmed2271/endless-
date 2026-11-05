@@ -1,0 +1,13 @@
+id: td_rtol
+label: TDDFT residual tolerance
+type: number
+destination: block:tddft
+template: RTol {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

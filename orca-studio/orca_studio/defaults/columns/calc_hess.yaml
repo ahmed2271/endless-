@@ -1,0 +1,10 @@
+id: calc_hess
+label: 'Initial Hessian: calculate'
+type: toggle
+destination: block:geom
+template: Calc_Hess true
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

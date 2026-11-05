@@ -1,0 +1,13 @@
+id: nroots
+label: TDDFT roots
+type: number
+destination: block:tddft
+template: NRoots {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

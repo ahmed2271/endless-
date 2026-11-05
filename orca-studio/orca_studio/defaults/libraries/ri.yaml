@@ -1,0 +1,7 @@
+id: ri
+label: RI approximation
+entries:
+- {id: rijcosx, label: RIJCOSX, orca_text: RIJCOSX, tags: ['exclusive:ri']}
+- {id: rijk, label: RIJK, orca_text: RIJK, tags: ['exclusive:ri']}
+- {id: rijonx, label: RIJONX, orca_text: RIJONX, tags: ['exclusive:ri']}
+- {id: nori, label: NoRI, orca_text: NoRI, tags: ['exclusive:ri']}

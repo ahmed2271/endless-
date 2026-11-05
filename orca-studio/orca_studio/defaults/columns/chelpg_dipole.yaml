@@ -1,0 +1,9 @@
+id: chelpg_dipole
+label: CHELPG dipole constraint
+type: toggle
+destination: block:chelpg
+template: DIPOLE true
+applies_to:
+- all
+- '!xtb'
+default: ''

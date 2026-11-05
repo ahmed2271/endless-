@@ -1,0 +1,14 @@
+name: Excited states (TDDFT)
+description: Ground-state energies plus TDDFT states, S1/T1 and the brightest state.
+fields:
+- {id: E_gs, name: Ground-state energy, kind: builtin, builtin: final_energy, source: {mode: last_of_type, value: opt_freq}, unit: Eh}
+- {id: nimag, name: Imaginary frequencies, kind: builtin, builtin: imag_count, source: {mode: last_of_type, value: opt_freq}}
+- {id: HOMO, name: HOMO, kind: builtin, builtin: homo, source: {mode: last_of_type, value: opt_freq}, unit: eV}
+- {id: LUMO, name: LUMO, kind: builtin, builtin: lumo, source: {mode: last_of_type, value: opt_freq}, unit: eV}
+- {id: S1, name: S1, kind: builtin, builtin: s1_energy, source: {mode: last_of_type, value: tddft}, unit: eV}
+- {id: S1_nm, name: S1 wavelength, kind: builtin, builtin: s1_energy, source: {mode: last_of_type, value: tddft}, unit: nm, decimals: 1}
+- {id: S1_f, name: S1 oscillator strength, kind: builtin, builtin: s1_fosc, source: {mode: last_of_type, value: tddft}, decimals: 4}
+- {id: bright_nm, name: Brightest state (250–800 nm), kind: builtin, builtin: brightest, params: {nm_min: 250, nm_max: 800}, source: {mode: last_of_type, value: tddft}, unit: nm, decimals: 1}
+- {id: q_hirshfeld, name: Hirshfeld charges (ground state), kind: builtin, builtin: charges, params: {scheme: hirshfeld}, source: {mode: last_of_type, value: opt_freq}}
+- {id: states, name: Excited states, kind: builtin, builtin: excited_states, source: {mode: last_of_type, value: tddft}}
+version: 2

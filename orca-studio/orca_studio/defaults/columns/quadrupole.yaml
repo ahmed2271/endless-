@@ -1,0 +1,9 @@
+id: quadrupole
+label: Quadrupole
+type: toggle
+destination: block:elprop
+template: Quadrupole true
+applies_to:
+- all
+- '!xtb'
+default: ''

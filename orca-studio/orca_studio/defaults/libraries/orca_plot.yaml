@@ -1,0 +1,19 @@
+# Menu answers fed to "orca_plot {gbw} -i" on stdin (section 11). [VERIFY] Appendix D check 6.
+# Placeholders: {index} orbital number, {operator} 0=alpha 1=beta, {grid} points per side, {state} excited state.
+id: orca_plot
+label: orca_plot menu answers
+entries:
+- {id: mo, label: Molecular orbital, orca_text: "1\n1\n2\n{index}\n3\n{operator}\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified]}
+- {id: density, label: Electron density, orca_text: "1\n2\ny\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified]}
+- {id: spin_density, label: Spin density, orca_text: "1\n3\ny\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified]}
+- {id: esp, label: Electrostatic potential, orca_text: "1\n43\ny\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified], notes: 'Documented for ORCA 6.1; may not exist in 6.0.1. Use mep.py instead.'}
+- {id: tddft_difference, label: TDDFT difference density, orca_text: "6\ny\n{state}\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified]}
+- {id: tddft_transition, label: TDDFT transition density, orca_text: "12\ny\n{state}\n4\n{grid}\n5\n7\n10\n11\n", destination: none, tags: [unverified]}
+# Second route (used when orca_plot's menus do not fit): a short ORCA run that reads the saved
+# orbitals without SCF iterations and writes the cubes through a %plots block.
+- {id: plots_keywords, label: '%plots route: keywords', orca_text: MORead NoIter, destination: none}
+- {id: plots_header, label: '%plots route: grid and format', orca_text: "dim1 {grid}\ndim2 {grid}\ndim3 {grid}\nFormat Gaussian_Cube", destination: none}
+- {id: plots_mo, label: '%plots route: orbital', orca_text: 'MO("{file}", {index}, {operator});', destination: none}
+- {id: plots_density, label: '%plots route: electron density', orca_text: 'ElDens("{file}");', destination: none}
+- {id: plots_spin_density, label: '%plots route: spin density', orca_text: 'SpinDens("{file}");', destination: none}
+- {id: plots_drop_blocks, label: '%plots route: blocks left out of the plot run', orca_text: tddft geom freq cis rocis eprnmr elprop plots mrci casscf, destination: none}

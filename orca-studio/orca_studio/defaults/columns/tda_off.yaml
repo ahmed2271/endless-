@@ -1,0 +1,13 @@
+id: tda_off
+label: Full TDDFT (no TDA)
+type: toggle
+destination: block:tddft
+template: TDA false
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

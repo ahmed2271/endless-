@@ -1,0 +1,7 @@
+# [VERIFY] exact xTB keywords on ORCA 6.0.1 (Appendix D, check 1). verify_candidates are tried in order.
+id: semiempirical
+label: Semi-empirical
+entries:
+- {id: xtb2, label: GFN2-xTB, orca_text: XTB2, tags: [includes_dispersion, includes_basis, 'requires:xtb', unverified], verify_candidates: [XTB2, GFN2-XTB]}
+- {id: xtb1, label: GFN1-xTB, orca_text: XTB1, tags: [includes_dispersion, includes_basis, 'requires:xtb', unverified], verify_candidates: [XTB1, GFN1-XTB]}
+- {id: gfnff, label: GFN-FF, orca_text: XTBFF, tags: [includes_dispersion, includes_basis, 'requires:xtb', unverified], verify_candidates: [XTBFF, GFN-FF, GFNFF]}

@@ -1,0 +1,20 @@
+name: Standard
+description: Energies, thermochemistry, frontier orbitals, dipole, and Hirshfeld and MBIS charges of the last step.
+fields:
+- {id: E, name: Final energy, kind: builtin, builtin: final_energy, source: {mode: last}, unit: Eh}
+- {id: G, name: Gibbs free energy, kind: builtin, builtin: total_gibbs, source: {mode: last_of_type, value: opt_freq}, unit: Eh}
+- {id: H, name: Enthalpy, kind: builtin, builtin: total_enthalpy, source: {mode: last_of_type, value: opt_freq}, unit: Eh}
+- {id: ZPE, name: ZPE, kind: builtin, builtin: zpe, source: {mode: last_of_type, value: opt_freq}, unit: kcal/mol}
+- {id: Gcorr, name: G − E correction, kind: builtin, builtin: gibbs_correction, source: {mode: last_of_type, value: opt_freq}, unit: kcal/mol}
+- {id: nimag, name: Imaginary frequencies, kind: builtin, builtin: imag_count, params: {threshold: 0}, source: {mode: last_of_type, value: opt_freq}}
+- {id: lowfreq, name: Lowest frequency, kind: builtin, builtin: lowest_freq, source: {mode: last_of_type, value: opt_freq}}
+- {id: optconv, name: Opt converged, kind: builtin, builtin: opt_converged, source: {mode: last_of_type, value: opt_freq}}
+- {id: HOMO, name: HOMO, kind: builtin, builtin: homo, source: {mode: last}, unit: eV}
+- {id: LUMO, name: LUMO, kind: builtin, builtin: lumo, source: {mode: last}, unit: eV}
+- {id: gap, name: Gap, kind: builtin, builtin: gap, source: {mode: last}, unit: eV}
+- {id: dipole, name: Dipole, kind: builtin, builtin: dipole, source: {mode: last}, unit: Debye}
+- {id: relG, name: Relative G, kind: formula, expr: relsame(G), unit_kind: energy, unit: kcal/mol}
+- {id: q_hirshfeld, name: Hirshfeld charges, kind: builtin, builtin: charges, params: {scheme: hirshfeld}, source: {mode: last}}
+- {id: q_mbis, name: MBIS charges, kind: builtin, builtin: charges, params: {scheme: mbis}, source: {mode: last}}
+- {id: runtime, name: Run time (last step), kind: builtin, builtin: run_time, source: {mode: last}, unit: min, decimals: 1}
+version: 2

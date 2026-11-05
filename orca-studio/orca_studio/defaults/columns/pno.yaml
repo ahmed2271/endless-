@@ -1,0 +1,10 @@
+id: pno
+label: PNO accuracy
+type: dropdown
+library:
+- pno
+slot: method
+applies_to:
+- sp
+- custom
+default: ''

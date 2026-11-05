@@ -1,0 +1,7 @@
+# References added to every batch citation report (tag 'always'). ORCA 6 also prints its own
+# "SUGGESTED CITATIONS" at the end of each output; the report includes those when present.
+id: citations
+label: Citations
+entries:
+- {id: orca6, label: ORCA 6, orca_text: 'F. Neese, Software Update: The ORCA Program System—Version 6.0, WIREs Comput. Mol. Sci. 15, e70019 (2025). DOI 10.1002/wcms.70019', destination: none, tags: [always, unverified], notes: 'Compare with the citation printed at the end of your ORCA 6.0.1 output'}
+- {id: multiwfn, label: Multiwfn, orca_text: 'T. Lu, F. Chen, Multiwfn: A multifunctional wavefunction analyzer, J. Comput. Chem. 33, 580-592 (2012). DOI 10.1002/jcc.22885', destination: none, tags: [multiwfn]}

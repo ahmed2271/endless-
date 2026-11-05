@@ -1,0 +1,13 @@
+id: iroot
+label: Root of interest
+type: number
+destination: block:tddft
+template: IRoot {value}
+applies_to:
+- tddft
+- opt
+- sp
+- opt_freq
+- freq
+- custom
+default: ''

@@ -1,0 +1,10 @@
+id: raman
+label: Raman
+type: toggle
+destination: block:elprop
+template: Polar 1
+applies_to:
+- opt_freq
+- freq
+notes: 'Raman needs NumFreq: also set Hessian = NumFreq'
+default: ''

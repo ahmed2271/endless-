@@ -1,0 +1,8 @@
+id: scf_helpers
+label: SCF helpers
+entries:
+- {id: slowconv, label: SlowConv, orca_text: SlowConv}
+- {id: veryslowconv, label: VerySlowConv, orca_text: VerySlowConv}
+- {id: kdiis, label: KDIIS, orca_text: KDIIS}
+- {id: soscf, label: SOSCF, orca_text: SOSCF}
+- {id: notrah, label: NoTRAH, orca_text: NoTRAH}

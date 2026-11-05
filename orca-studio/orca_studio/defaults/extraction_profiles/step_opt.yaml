@@ -1,0 +1,9 @@
+name: Optimization
+description: For optimization steps (XTB pre-opt, Opt) - energy, convergence, cycles, how far the structure moved.
+use_for: step
+version: 1
+fields:
+- {id: E, name: Energy, kind: builtin, builtin: final_energy, unit: Eh}
+- {id: optconv, name: Opt converged, kind: builtin, builtin: opt_converged}
+- {id: cycles, name: Opt cycles, kind: builtin, builtin: opt_cycles}
+- {id: rmsd, name: RMSD from start (Å), kind: builtin, builtin: rmsd_start, decimals: 3}

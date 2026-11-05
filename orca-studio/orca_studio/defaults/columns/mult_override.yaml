@@ -1,0 +1,8 @@
+id: mult_override
+label: Multiplicity override
+type: number
+special: mult_override
+applies_to:
+- all
+notes: Replaces the molecule multiplicity in the * xyzfile line
+default: ''

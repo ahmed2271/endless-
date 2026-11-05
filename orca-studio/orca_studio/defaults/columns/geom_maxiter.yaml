@@ -1,0 +1,10 @@
+id: geom_maxiter
+label: Opt max cycles
+type: number
+destination: block:geom
+template: MaxIter {value}
+applies_to:
+- opt
+- opt_freq
+- xtb
+default: ''

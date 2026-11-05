@@ -1,0 +1,8 @@
+id: aux_basis
+label: Auxiliary basis sets
+entries:
+- {id: autoaux, label: AutoAux, orca_text: AutoAux}
+- {id: def2j, label: def2/J, orca_text: def2/J}
+- {id: def2jk, label: def2/JK, orca_text: def2/JK}
+- {id: def2svpc, label: def2-SVP/C, orca_text: def2-SVP/C}
+- {id: def2tzvpc, label: def2-TZVP/C, orca_text: def2-TZVP/C}

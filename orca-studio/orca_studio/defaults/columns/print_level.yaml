@@ -1,0 +1,9 @@
+id: print_level
+label: Print level
+type: dropdown
+library:
+- print_level
+slot: extras
+applies_to:
+- all
+default: ''

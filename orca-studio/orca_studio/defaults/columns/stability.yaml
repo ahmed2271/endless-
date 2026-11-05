@@ -1,0 +1,9 @@
+id: stability
+label: Stability analysis
+type: toggle
+destination: block:scf
+template: STABPerform true
+applies_to:
+- all
+- '!xtb'
+default: ''

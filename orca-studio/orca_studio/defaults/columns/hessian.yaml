@@ -1,0 +1,12 @@
+id: hessian
+label: Hessian
+type: dropdown
+library:
+- hessian
+slot: job
+replaces_tokens:
+- Freq
+applies_to:
+- opt_freq
+- freq
+default: ''

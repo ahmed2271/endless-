@@ -1,0 +1,16 @@
+name: Opt → SP → TDDFT
+description: B3LYP-D3(BJ)/def2-SVP optimization, def2-TZVP single point with Hirshfeld and MBIS charges, then 10 TDDFT states.
+version: 2
+extraction_profile: ''
+columns:
+- {column: method}
+- {column: basis}
+- {column: dispersion}
+- {column: populations}
+- {column: nroots}
+defaults: {method: b3lyp, dispersion: d3bj}
+resources: {nprocs: 2, maxcore: 1000}
+steps:
+- {name: Opt, slug: opt, type: opt, values: {basis: def2svp}}
+- {name: SP, slug: sp, type: sp, values: {basis: def2tzvp, populations: [hirshfeld, mbis]}}
+- {name: TDDFT, slug: tddft, type: tddft, values: {basis: def2tzvp, nroots: 10}}

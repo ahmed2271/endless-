@@ -1,0 +1,10 @@
+name: mep.py
+description: Your MEP script. Writes {basename}_mep.cube (electrostatic potential) using orca_vpot.
+interpreter: python
+path_setting: mep
+command: '{python} {script} {basename} {npoints} {nprocs}'
+outputs:
+- {glob: '{basename}_mep.cube', type: cube, role: esp}
+cores: 2
+npoints: 80
+timeout: 3600

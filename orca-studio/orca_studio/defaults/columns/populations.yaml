@@ -1,0 +1,11 @@
+id: populations
+label: Populations
+type: dropdown
+library:
+- populations
+slot: properties
+multi: true
+applies_to:
+- all
+- '!xtb'
+default: ''

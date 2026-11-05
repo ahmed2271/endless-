@@ -1,0 +1,9 @@
+id: cpcm_refrac
+label: Refractive index
+type: number
+destination: block:cpcm
+template: refrac {value}
+applies_to:
+- all
+- '!xtb'
+default: ''

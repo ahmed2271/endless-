@@ -1,0 +1,9 @@
+id: temperature
+label: Temperature (K)
+type: number
+destination: block:freq
+template: Temp {value}
+applies_to:
+- opt_freq
+- freq
+default: ''

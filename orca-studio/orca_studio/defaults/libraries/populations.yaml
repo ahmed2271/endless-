@@ -1,0 +1,11 @@
+id: populations
+label: Population analyses
+entries:
+- {id: hirshfeld, label: Hirshfeld, orca_text: Hirshfeld}
+- {id: mbis, label: MBIS, orca_text: MBIS}
+- {id: chelpg, label: CHELPG, orca_text: CHELPG}
+- {id: chelpg_large, label: CHELPG(LARGE), orca_text: CHELPG(LARGE)}
+- {id: resp, label: RESP, orca_text: RESP, notes: 'Restrained ESP; values may differ from other programs'}
+- {id: npa, label: NPA, orca_text: NPA, tags: ['requires:nbo']}
+- {id: nbo, label: NBO, orca_text: NBO, tags: ['requires:nbo']}
+- {id: fmopop, label: Frontier orbital populations, orca_text: FMOPop}

@@ -1,0 +1,5 @@
+id: correlated
+label: Correlated methods
+entries:
+- {id: dlpno_ccsdt, label: DLPNO-CCSD(T), orca_text: DLPNO-CCSD(T), notes: 'Needs a /C auxiliary basis'}
+- {id: rimp2, label: RI-MP2, orca_text: RI-MP2}
