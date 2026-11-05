@@ -143,12 +143,20 @@ def test_versioning_and_templates(studio):
     b = batches.create("v", "preopt_optfreq_b3lyp", None, None)
     p2 = copy.deepcopy(p)
     p2["steps"][1]["values"]["basis"] = "def2tzvp"
-    r = c.put("/api/calc_profiles/preopt_optfreq_b3lyp", json=p2).json()
-    assert r["version"] == 2
-    assert c.put("/api/calc_profiles/preopt_optfreq_b3lyp", json=r).json()["version"] == 2   # unchanged -> no new version
-    assert batches.get(b["id"])["profile"]["steps"][1]["values"]["basis"] == "def2svp"       # batch keeps v1
-    assert c.get("/api/calc_profiles/preopt_optfreq_b3lyp?version=1").json()["steps"][1]["values"]["basis"] == "def2svp"
-    assert c.get("/api/calc_profiles/preopt_optfreq_b3lyp").json()["versions"] == [1, 2]
+    v0 = p["version"]
+    r = c.put("/api/calc_profiles/preopt_optfreq_b3lyp?mode=new_version", json=p2).json()
+    assert r["version"] == v0 + 1
+    assert c.put("/api/calc_profiles/preopt_optfreq_b3lyp?mode=new_version", json=r).json()["version"] == v0 + 1  # unchanged
+    assert batches.get(b["id"])["profile"]["steps"][1]["values"]["basis"] == "def2svp"       # batch keeps its copy
+    assert c.get(f"/api/calc_profiles/preopt_optfreq_b3lyp?version={v0}").json()["steps"][1]["values"]["basis"] == "def2svp"
+    assert c.get("/api/calc_profiles/preopt_optfreq_b3lyp").json()["versions"] == [v0, v0 + 1]
+    # plain Save changes the profile in place (same version), batches still keep their copy
+    r2 = dict(r)
+    r2["steps"][1]["values"]["basis"] = "def2qzvp"
+    r3 = c.put("/api/calc_profiles/preopt_optfreq_b3lyp", json=r2).json()
+    assert r3["version"] == v0 + 1 and r3["steps"][1]["values"]["basis"] == "def2qzvp"
+    assert c.get(f"/api/calc_profiles/preopt_optfreq_b3lyp?version={v0 + 1}").json()["steps"][1]["values"]["basis"] == "def2qzvp"
+    assert batches.get(b["id"])["profile"]["steps"][1]["values"]["basis"] == "def2svp"
     # step templates are stored by copy
     t = c.post("/api/items/step_templates", json={"name": "My TDDFT", "step": {"name": "TDDFT", "type": "tddft", "values": {"nroots": 8}}}).json()
     assert store.get_item("step_templates", t["id"])["step"]["values"]["nroots"] == 8

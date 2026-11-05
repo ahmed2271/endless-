@@ -47,7 +47,9 @@ def test_delete_batches_files_profiles(studio, tmp_path):
     assert p["steps"] == []                                                                # new profiles start empty
     assert c.delete(f"/api/calc_profiles/{p['id']}").json() == {"ok": True}
     assert c.get(f"/api/calc_profiles/{p['id']}").status_code == 404
-    assert c.delete("/api/calc_profiles/optfreq_tddft").json()["hidden"] is True
-    assert [x for x in c.get("/api/calc_profiles").json() if x["id"] == "optfreq_tddft"][0]["hidden"]
-    c.post("/api/calc_profiles/optfreq_tddft/unhide")
-    assert not [x for x in c.get("/api/calc_profiles").json() if x["id"] == "optfreq_tddft"][0]["hidden"]
+    # starter profiles can be deleted too, and do not come back at the next start
+    from orca_studio import store
+    assert c.delete("/api/calc_profiles/optfreq_tddft").json() == {"ok": True}
+    store.seed()
+    assert c.get("/api/calc_profiles/optfreq_tddft").status_code == 404
+    assert "optfreq_tddft" not in [x["id"] for x in c.get("/api/calc_profiles").json()]

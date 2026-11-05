@@ -142,11 +142,27 @@ def seed() -> None:
             srcdir = config.DEFAULTS_DIR / kind
             if not srcdir.exists():
                 continue
+            gone = deleted_defaults()
             for src in sorted(srcdir.glob("*.yaml")):
                 dst = d / src.name
+                if f"{kind}/{src.name}" in gone:
+                    continue
+                data = read_yaml(src) or {}
+                data["builtin"] = True
                 if not dst.exists():
-                    data = read_yaml(src) or {}
-                    data["builtin"] = True
+                    write_yaml(dst, data)
+                    continue
+                # a newer starter replaces the user's copy only if that copy was never edited
+                user = read_yaml(dst) or {}
+                if user.get("builtin") and not user.get("saved_at") and not user.get("edited") \
+                        and int(user.get("version") or 1) < int(data.get("version") or 1):
+                    bak = root() / ".trash" / "upgraded" / kind
+                    bak.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(dst, bak / dst.name)
+                    if kind == "calc_profiles":
+                        keep = dict(user)
+                        keep.pop("id", None)
+                        write_yaml(d / "versions" / src.stem / f"v{int(user.get('version') or 1)}.yaml", keep)
                     write_yaml(dst, data)
         if not config.settings_path().exists():
             config.save_settings(config.load_settings())
@@ -276,12 +292,21 @@ def unique_id(kind: str, base: str) -> str:
     return cand
 
 
-def delete_item(kind: str, item_id: str) -> None:
+def deleted_defaults() -> set[str]:
+    p = root() / ".deleted_defaults.yaml"
+    return set(read_yaml(p) or []) if p.exists() else set()
+
+
+def delete_item(kind: str, item_id: str, allow_builtin: bool = False) -> None:
+    """Move an item to .trash. A deleted starter item is remembered so seed() does not bring it back."""
     with _lock:
         p = kind_dir(kind) / f"{safe_id(item_id)}.yaml"
         d = read_yaml(p) if p.exists() else None
         if d and d.get("builtin"):
-            raise ValueError("Built-in items can be hidden but not deleted")
+            if not allow_builtin:
+                raise ValueError("Built-in items can be hidden but not deleted")
+            gone = deleted_defaults() | {f"{kind}/{p.name}"}
+            write_yaml(root() / ".deleted_defaults.yaml", sorted(gone))
         trash = root() / ".trash" / kind
         trash.mkdir(parents=True, exist_ok=True)
         if p.exists():
@@ -306,8 +331,13 @@ def _profile_body(p: dict) -> dict:
     return {k: v for k, v in p.items() if k not in ("version", "saved_at", "id", "builtin")}
 
 
-def save_calc_profile(profile: dict) -> dict:
-    """Save a calculation profile; a changed profile becomes a new version (section 6.5)."""
+def save_calc_profile(profile: dict, mode: str = "new_version") -> dict:
+    """Save a calculation profile.
+
+    mode "new_version": a changed profile becomes the next version (section 6.5).
+    mode "overwrite": the changes replace the current version in place. Batches are not affected:
+    each batch keeps its own copy of the profile it ran with.
+    """
     from datetime import datetime
 
     with _lock:
@@ -318,17 +348,16 @@ def save_calc_profile(profile: dict) -> dict:
         version = 1
         if old:
             version = int(old.get("version") or 1)
-            if dump_yaml(_profile_body(old)) != dump_yaml(_profile_body(profile)):
-                version += 1
-            else:
+            if dump_yaml(_profile_body(old)) == dump_yaml(_profile_body(profile)):
                 return old
-        if old:
-            vdir = kind_dir("calc_profiles") / "versions" / pid
-            oldv = vdir / f"v{int(old.get('version') or 1)}.yaml"
-            if not oldv.exists():
-                keep = dict(old)
-                keep.pop("id", None)
-                write_yaml(oldv, keep)
+            if mode != "overwrite":
+                version += 1
+                vdir = kind_dir("calc_profiles") / "versions" / pid
+                oldv = vdir / f"v{int(old.get('version') or 1)}.yaml"
+                if not oldv.exists():
+                    keep = dict(old)
+                    keep.pop("id", None)
+                    write_yaml(oldv, keep)
         profile["version"] = version
         profile["saved_at"] = datetime.now().isoformat(timespec="seconds")
         if old and old.get("builtin"):

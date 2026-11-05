@@ -129,7 +129,7 @@ def _scheme_spread(o, p):
 
 
 def _charge_sel(o, p, ctx):
-    tab = charges_of(o, p.get("scheme", "mulliken"))
+    tab = charges_of(o, p.get("scheme", "hirshfeld"))
     if not tab:
         return None
     key = p.get("value", "charge")
@@ -255,8 +255,8 @@ def _reg():
         lambda o, p, c: ([dict(x, spin="alpha") for x in o.orbitals["alpha"]] + [dict(x, spin="beta") for x in o.orbitals["beta"]]) if o.orbitals else None)
     R("s2", "⟨S²⟩", "Orbitals and spin", "none")(lambda o, p, c: (o.s2 or {}).get("s2"))
     R("s2_dev", "⟨S²⟩ deviation", "Orbitals and spin", "none")(lambda o, p, c: (o.s2 or {}).get("deviation"))
-    R("spin_populations", "Spin populations (Mulliken)", "Orbitals and spin", "charge", "table", params=["scheme"])(
-        lambda o, p, c: [{"atom": r["atom"], "element": r["element"], "spin": r.get("spin")} for r in (o.charges(p.get("scheme", "mulliken")) or [])] or None)
+    R("spin_populations", "Spin populations", "Orbitals and spin", "charge", "table", params=["scheme"])(
+        lambda o, p, c: [{"atom": r["atom"], "element": r["element"], "spin": r.get("spin")} for r in (charges_of(o, p.get("scheme", "hirshfeld")) or [])] or None)
     R("spin_on", "Spin on atoms", "Orbitals and spin", "charge", params=["scheme", "atoms"])(
         lambda o, p, c: _charge_sel(o, {**p, "value": "spin"}, c))
     # electric properties
@@ -266,7 +266,7 @@ def _reg():
     R("quadrupole_iso", "Quadrupole (isotropic)", "Electric properties", "none")(lambda o, p, c: o.quadrupole_isotropic)
     R("polarizability", "Polarizability (isotropic, au)", "Electric properties", "none")(lambda o, p, c: o.polarizability_isotropic)
     R("charges", "Atomic charges", "Electric properties", "charge", "table", params=["scheme"])(
-        lambda o, p, c: charges_of(o, p.get("scheme", "mulliken")))
+        lambda o, p, c: charges_of(o, p.get("scheme", "hirshfeld")))
     R("scheme_spread", "Charge scheme spread (flags atoms where schemes disagree)", "Electric properties", "charge", "table",
       params=["schemes", "threshold"])(lambda o, p, c: _scheme_spread(o, p))
     R("charge_on", "Charge on atoms / element / fragment", "Electric properties", "charge", params=["scheme", "atoms", "value"])(

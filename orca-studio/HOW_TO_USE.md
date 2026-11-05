@@ -87,6 +87,10 @@ Without the service you can also run it in a terminal: `./run.sh` (Ctrl+C stops 
    **Queue** page. The bell at the top shows notifications (batch finished, failures, waiting for
    review).
 
+To delete a batch, use **Delete…** in the Batches list (or the *Batch settings* tab): remove it from
+the list only, or delete its folder too (asks for confirmation). Single files and step folders can be
+deleted from the *Files* tab.
+
 Buttons: **Pause** (running jobs finish, nothing new starts), **Resume**, **Cancel** (asks first,
 then kills running jobs), **Retry failed**, **Continue** (after a "pause for review" step).
 
@@ -102,7 +106,9 @@ Open a batch and use the tabs:
   G, H, ZPE, imaginary frequencies, HOMO/LUMO, dipole, relative G, …). Click a header to sort, type in
   the filter box, hover a grey "n/a" to see why a value is missing. Red cells are flagged (for example
   imaginary frequencies or a non-converged optimization). Sub-tables (charges per atom, excited states,
-  frequencies) are below the main table. Buttons export **CSV**, **Excel** (one sheet per table),
+  frequencies) are below the main table. The starter profiles compute **Hirshfeld and MBIS** charges
+on the Opt + Freq step and the Standard extraction profile shows both as sub-tables; choose another
+scheme (CHELPG, RESP, NPA, Mulliken, Löwdin) in a *charges* field if you need it. Buttons export **CSV**, **Excel** (one sheet per table),
   **final geometries** (zip with one .xyz per molecule plus one multi-structure .xyz), a **Supporting
   Information** text file and a **citations** list. *Save to results folder* writes CSV and Excel into
   `{batch}/results/`. Per-atom charge tables also offer `.pqr` and `.mol2` files.
@@ -158,7 +164,11 @@ options (wait for all / pause for review, retries, files to keep, time limit…)
 and the **input preview**, which is exactly the file that will be written. **Edit final input**
 lets you hand-edit the whole input for one step (clearly marked in the table).
 
-Saving creates a new version; batches keep the version they ran with.
+**Save** stores your changes in the profile. **Save as new version** keeps the current version
+unchanged and stores the changes as the next version (choose older versions in the menu at the top
+right). Either way, batches are never affected: each batch keeps its own copy of the profile it ran
+with. **Delete** (in the editor or the profile list) removes a profile; the file goes to the `.trash`
+folder in the profiles folder, and deleted starter profiles do not come back.
 
 Useful workflow options per step: **pause for review** (the batch waits for *Continue*), **run only
 if a check fired** (for example re-optimize only molecules with an imaginary frequency), **retry on

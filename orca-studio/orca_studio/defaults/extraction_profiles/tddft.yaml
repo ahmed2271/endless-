@@ -9,4 +9,6 @@ fields:
 - {id: S1_nm, name: S1 wavelength, kind: builtin, builtin: s1_energy, source: {mode: last_of_type, value: tddft}, unit: nm, decimals: 1}
 - {id: S1_f, name: S1 oscillator strength, kind: builtin, builtin: s1_fosc, source: {mode: last_of_type, value: tddft}, decimals: 4}
 - {id: bright_nm, name: Brightest state (250–800 nm), kind: builtin, builtin: brightest, params: {nm_min: 250, nm_max: 800}, source: {mode: last_of_type, value: tddft}, unit: nm, decimals: 1}
+- {id: q_hirshfeld, name: Hirshfeld charges (ground state), kind: builtin, builtin: charges, params: {scheme: hirshfeld}, source: {mode: last_of_type, value: opt_freq}}
 - {id: states, name: Excited states, kind: builtin, builtin: excited_states, source: {mode: last_of_type, value: tddft}}
+version: 2

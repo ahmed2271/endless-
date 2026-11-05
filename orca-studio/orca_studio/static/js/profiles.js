@@ -9,18 +9,14 @@ App.register("profiles", async (main, id, ver) => {
       const p = await App.post("/api/calc_profiles", {name}); location.hash = `#/profiles/${p.id}`;
     }}, "+ New profile")));
   main.append(h("p", {class: "help"}, "A profile is a reusable recipe of steps. Saving an edited profile creates a new version; each batch remembers the exact version it ran with."));
-  const all = await App.get("/api/calc_profiles");
-  const showHidden = location.hash.includes("hidden");
-  const list = all.filter(p => showHidden || !p.hidden);
-  const nHidden = all.filter(p => p.hidden).length;
-  if (nHidden) main.append(h("p", {class: "small"}, h("a", {href: showHidden ? "#/profiles" : "#/profiles?hidden"}, showHidden ? "Hide hidden profiles" : `Show ${nHidden} hidden profile(s)`)));
+  const list = await App.get("/api/calc_profiles");
   main.append(h("div", {class: "card", style: {padding: 0}}, h("table", null,
     h("tr", null, ["Name", "Steps", "Version", "Saved", ""].map(x => h("th", null, x))),
     list.map(p => h("tr", {class: "clickable", onclick: () => location.hash = `#/profiles/${p.id}`},
       h("td", null, h("b", null, p.name), h("div", {class: "small muted"}, p.description)),
       h("td", {class: "small"}, p.steps.join(" → ")),
       h("td", null, "v" + p.version), h("td", {class: "small muted"}, p.saved_at || (p.builtin ? "starter" : "")),
-      h("td", null, p.hidden ? h("button", {class: "small", onclick: async e => { e.stopPropagation(); await App.post(`/api/calc_profiles/${p.id}/unhide`); App.route(); }}, "Unhide") : null,
+      h("td", null, h("button", {class: "small danger", onclick: async e => { e.stopPropagation(); await Prof.remove(p.id, p.name); }}, "Delete"),
         h("button", {class: "small", onclick: async e => {
         e.stopPropagation();
         const name = await App.prompt("Duplicate profile", "Name of the copy", p.name + " (copy)"); if (!name) return;
@@ -31,6 +27,16 @@ App.register("profiles", async (main, id, ver) => {
 
 const Prof = {
   cat: null,
+  async remove(id, name) {
+    const used = await App.get(`/api/calc_profiles/${id}/batches`);
+    const note = used.length ? ` ${used.length} batch(es) used it (${used.map(b => b.name).slice(0, 5).join(", ")}); they keep their own copy and their results.` : "";
+    if (!await App.confirm("Delete profile", `Delete "${name}"?${note} The file is moved to the .trash folder in the profiles folder.`, "Delete", true)) return false;
+    window.onbeforeunload = null;
+    await App.del(`/api/calc_profiles/${id}`);
+    App.toast(`Deleted "${name}"`);
+    if (location.hash === "#/profiles") App.route(); else location.hash = "#/profiles";
+    return true;
+  },
   async catalog() {
     const [libs, cols, scripts, eps, tpls] = await Promise.all([App.get("/api/libraries?full=1"), App.get("/api/columns"),
       App.get("/api/items/scripts"), App.get("/api/items/extraction_profiles"), App.get("/api/items/step_templates")]);
@@ -74,7 +80,8 @@ const Prof = {
     const verSel = W.select(versions.map(v => ({value: v, label: `version ${v}` + (v === Math.max(...versions) ? " (latest)" : "")})), p.version, v => location.hash = `#/profiles/${id}/${v}`);
     const epSel = W.select([{value: "", label: "(none)"}, ...C.eps.map(e => ({value: e.id, label: e.name || e.id}))], p.extraction_profile || "", v => { p.extraction_profile = v; dirty(); });
     const res = (k, label) => h("label", {class: "f"}, label, h("input", {type: "number", value: p.resources[k] ?? "", style: {width: "110px"}, oninput: e => { p.resources[k] = e.target.value === "" ? null : +e.target.value; dirty(); }}));
-    const saveBtn = h("button", {class: "primary", onclick: save}, "Save (new version)");
+    const saveBtn = h("button", {class: "primary", title: "Save the changes into this profile", onclick: () => save("overwrite")}, "Save");
+    const saveVerBtn = h("button", {title: "Keep the current version unchanged and store the changes as the next version", onclick: () => save("new_version")}, "Save as new version");
     const issuesBox = h("div");
     main.append(h("div", {class: "row", style: {marginBottom: "6px"}}, h("a", {href: "#/profiles"}, "← Calculation profiles")),
       h("div", {class: "card"},
@@ -83,14 +90,9 @@ const Prof = {
         h("div", {class: "row", style: {marginTop: "8px", alignItems: "flex-end"}},
           h("label", {class: "f"}, "Extraction profile (default for batches)", epSel), res("nprocs", "Cores per job"), res("maxcore", "Memory per core (MB)"),
           h("span", {class: "spacer"}),
-          h("button", {class: "danger", onclick: async () => {
-            const starter = p.builtin;
-            if (!await App.confirm("Delete profile", starter ? `"${p.name}" is a starter profile: it will be hidden from the list (you can unhide it later). Batches that already used it keep their copy.` :
-              `Delete "${p.name}"? Batches that already used it keep their own copy. The file goes to the .trash folder.`, starter ? "Hide" : "Delete", true)) return;
-            st.dirty = false; await App.del(`/api/calc_profiles/${id}`); location.hash = "#/profiles";
-          }}, p.builtin ? "Hide" : "Delete"),
-          h("button", {onclick: validateNow}, "Validate"), saveBtn)),
-      version && version !== Math.max(...versions) ? h("div", {class: "msg warning"}, `You are looking at version ${version}. Saving creates a new version from it.`) : "",
+          h("button", {class: "danger", onclick: () => Prof.remove(id, p.name)}, "Delete"),
+          h("button", {onclick: validateNow}, "Validate"), saveVerBtn, saveBtn)),
+      version && version !== Math.max(...versions) ? h("div", {class: "msg warning"}, `You are looking at the older version ${version}. Saving stores it as a new version (the latest is not overwritten).`) : "",
       issuesBox);
 
     const tableWrap = h("div", {class: "ptable"});
@@ -104,7 +106,7 @@ const Prof = {
     const detail = h("div");
     main.append(h("h2", null, "Steps"), tools, tableWrap, detail);
 
-    function dirty() { st.dirty = true; saveBtn.textContent = "Save (new version) •"; schedulePreview(); }
+    function dirty() { st.dirty = true; saveBtn.textContent = "Save •"; schedulePreview(); }
     function layoutCols() { return p.columns.filter(c => C.cols[c.column] && (st.showHidden || !c.hidden)); }
 
     function cellControl(col, step, isDefaults) {
@@ -378,11 +380,19 @@ const Prof = {
       for (const i of issues) issuesBox.append(h("div", {class: "msg " + i.level}, i.message,
         i.fix ? h("button", {class: "small", style: {marginLeft: "8px"}, onclick: async () => { await save(); const r = await App.post(`/api/calc_profiles/${id}/fix`, {fix: i.fix}); App.toast(`Added; saved as version ${r.version}`); App.route(); }}, i.fix.label || "Fix") : null));
     }
-    async function save() {
-      const r = await App.put(`/api/calc_profiles/${id}`, p);
-      st.dirty = false; saveBtn.textContent = "Save (new version)";
-      App.toast(r.version === p.version ? "No changes" : `Saved as version ${r.version}`);
-      if (r.version !== p.version) location.hash = `#/profiles/${id}`;
+    async function save(mode = "overwrite") {
+      const viewingOld = version && version !== Math.max(...versions);
+      if (mode === "overwrite" && viewingOld) mode = "new_version";   // never overwrite the latest from an old version
+      const r = await App.put(`/api/calc_profiles/${id}?mode=${mode}`, p);
+      const changed = r.saved_at !== p.saved_at;
+      st.dirty = false; saveBtn.textContent = "Save";
+      if (!changed) App.toast("No changes to save");
+      else if (mode === "new_version") App.toast(`Saved as version ${r.version}; version ${p.version} is kept`);
+      else App.toast(`Saved (version ${r.version})`);
+      p.version = r.version; p.saved_at = r.saved_at;
+      if (changed && (mode === "new_version" || viewingOld)) {
+        if (location.hash === `#/profiles/${id}`) App.route(); else location.hash = `#/profiles/${id}`;
+      }
       return r;
     }
     window.onbeforeunload = () => st.dirty ? "unsaved" : undefined;

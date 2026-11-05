@@ -368,13 +368,13 @@ class OrcaOut:
 
     @cached_property
     def hirshfeld(self):
-        return self._atom_table(r"^HIRSHFELD ANALYSIS",
-                                rf"^\s*(\d+)\s+([A-Z][a-z]?)\S*\s+({F})\s+({F})\s*$", ["charge", "spin"])
+        return self._atom_table(r"^\s*HIRSHFELD ANALYSIS",
+                                rf"^\s*(\d+)\s+([A-Z][a-z]?)\S*\s+({F})(?:\s+({F}))?\s*$", ["charge", "spin"])
 
     @cached_property
     def mbis(self):
         return self._atom_table(r"MBIS ANALYSIS",
-                                rf"^\s*(\d+)\s+([A-Z][a-z]?)\S*\s+({F})\s+({F})\s+({F})\s*$",
+                                rf"^\s*(\d+)\s+([A-Z][a-z]?)\S*\s+({F})(?:\s+({F}))?(?:\s+({F}))?\s*$",
                                 ["charge", "population", "spin"])
 
     @cached_property

@@ -87,6 +87,18 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
     folder once. The field is optional; the validation warning only appears if no mpirun is found.
   - Tests: tests/test_delete.py, tests/test_openmpi.py; restart test race fixed. 29 passed.
 
+- Feedback round 2 (2026-11-05):
+  - Profiles: **Save** changes the profile in place, **Save as new version** keeps the old version;
+    batches always keep their own copy. Viewing an old version and saving never overwrites the latest.
+  - Any profile can be deleted (list or editor); deleted starter profiles are remembered so they do
+    not come back at start-up.
+  - Charges: starter calculation profiles now request Hirshfeld and MBIS on the Opt + Freq step, the
+    Standard extraction profile shows Hirshfeld and MBIS tables (no Mulliken), Hirshfeld is the
+    default scheme for new charge fields, and the Hirshfeld/MBIS readers accept both column layouts.
+    Existing installs: unedited starter copies are upgraded at start-up (old copy kept in
+    .trash/upgraded and as the previous profile version); edited copies are never touched.
+  - Tests: tests/test_upgrade.py; save-mode and delete tests updated. 30 passed.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

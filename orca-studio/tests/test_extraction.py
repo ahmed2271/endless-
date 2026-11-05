@@ -29,25 +29,28 @@ def test_standard_profile_and_exports(studio):
     b = _run_batch()
     res = extraction.results(b["id"])
     ids = [f["id"] for f in res["fields"]]
-    assert {"E", "G", "nimag", "HOMO", "q_mulliken"} <= set(ids)
+    assert {"E", "G", "nimag", "HOMO", "q_hirshfeld", "q_mbis"} <= set(ids)
     rows = {r["name"]: r for r in res["rows"]}
     w = rows["water"]["values"]
     assert w["E"]["v"] < -40 and w["nimag"]["v"] == 0 and w["optconv"]["v"] is True
     assert w["ZPE"]["v"] > 0                         # shown in kcal/mol
     assert w["relG"]["v"] == pytest.approx(0.0)      # only molecule with its composition
-    assert len([t for t in res["tables"]["q_mulliken"] if t["molecule"] == "water"]) == 3
+    hw = [t for t in res["tables"]["q_hirshfeld"] if t["molecule"] == "water"]
+    mw = [t for t in res["tables"]["q_mbis"] if t["molecule"] == "water"]
+    assert len(hw) == 3 and len(mw) == 3
+    assert sum(t["charge"] for t in hw) == pytest.approx(0, abs=1e-4) and mw[0]["population"] > 8
     # CSV + Excel
     csv = exports.csv_text(b["id"])
     assert csv.splitlines()[0].startswith("Molecule,Formula,Charge,Mult,Final energy (Eh)")
     assert len(csv.strip().splitlines()) == 4
     from openpyxl import load_workbook
     wb = load_workbook(io.BytesIO(exports.xlsx_bytes(b["id"])))
-    assert "Results" in wb.sheetnames and "Mulliken charges" in wb.sheetnames
+    assert {"Results", "Hirshfeld charges", "MBIS charges"} <= set(wb.sheetnames)
     assert "Molecule" in exports.si_text(b["id"]) or "Cartesian" in exports.si_text(b["id"])
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(exports.geometries_zip(b["id"])))
     assert {"water.xyz", "methanol.xyz", "formaldehyde.xyz"} <= set(z.namelist())
-    assert exports.charge_file(b["id"], rows["water"]["molecule_id"], "q_mulliken", "pqr").count("ATOM") == 3
+    assert exports.charge_file(b["id"], rows["water"]["molecule_id"], "q_hirshfeld", "pqr").count("ATOM") == 3
 
 
 def test_formulas_flags_and_units(studio):
@@ -98,13 +101,15 @@ def test_requirements_offer_fix(studio):
     from orca_studio import store, validate
     p = store.get_item("calc_profiles", "preopt_optfreq_b3lyp")
     ep = {"fields": [{"id": "m", "name": "MBIS", "kind": "builtin", "builtin": "charges", "params": {"scheme": "mbis"}, "source": {"mode": "last"}}]}
+    assert not [i for i in validate.validate(p, None, ep) if i.get("fix")]          # starter profile already has MBIS
+    ep = {"fields": [{"id": "c", "name": "CHELPG", "kind": "builtin", "builtin": "charges", "params": {"scheme": "chelpg"}, "source": {"mode": "last"}}]}
     issues = validate.validate(p, None, ep)
     fix = [i for i in issues if i.get("fix")]
-    assert fix and fix[0]["fix"]["value"] == "mbis" and fix[0]["fix"]["step"] == 1
+    assert fix and fix[0]["fix"]["value"] == "chelpg" and fix[0]["fix"]["step"] == 1
     from orca_studio.main import app
     c = TestClient(app)
     r = c.post("/api/calc_profiles/preopt_optfreq_b3lyp/fix", json={"fix": fix[0]["fix"]}).json()
-    assert r["version"] == 2 and r["steps"][1]["values"]["populations"] == ["mbis"]
+    assert r["version"] == p["version"] + 1 and r["steps"][1]["values"]["populations"] == ["hirshfeld", "mbis", "chelpg"]
     assert not [i for i in validate.validate(r, None, ep) if i.get("fix")]
 
 

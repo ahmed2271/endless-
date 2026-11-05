@@ -263,33 +263,27 @@ def api_profile_new(data: dict = Body(...)):
 
 
 @app.put("/api/calc_profiles/{pid}")
-def api_profile_save(pid: str, p: dict = Body(...)):
+def api_profile_save(pid: str, p: dict = Body(...), mode: str = "overwrite"):
+    """mode=overwrite (default): change this profile in place; mode=new_version: keep the old version."""
     p["id"] = pid
     p.pop("versions", None)
-    return store.save_calc_profile(p)
+    if mode not in ("overwrite", "new_version"):
+        err("mode must be overwrite or new_version")
+    return store.save_calc_profile(p, mode)
+
+
+@app.get("/api/calc_profiles/{pid}/batches")
+def api_profile_batches(pid: str):
+    """Batches that ran with this profile (they keep their own copy of it)."""
+    return db.q("SELECT id, name, calc_profile_version AS version, status FROM batches WHERE calc_profile_id=? ORDER BY id", (pid,))
 
 
 @app.delete("/api/calc_profiles/{pid}")
 def api_profile_delete(pid: str):
-    """Delete a profile (moved to .trash). Starter profiles are hidden instead, so they do not come back."""
-    p = store.get_item("calc_profiles", pid)
-    if not p:
+    """Delete a profile (moved to .trash). Batches that used it keep their own copy."""
+    if not store.get_item("calc_profiles", pid):
         err("profile not found", 404)
-    if p.get("builtin"):
-        p["hidden"] = True
-        store.save_item("calc_profiles", p)
-        return {"ok": True, "hidden": True}
-    store.delete_item("calc_profiles", pid)
-    return {"ok": True}
-
-
-@app.post("/api/calc_profiles/{pid}/unhide")
-def api_profile_unhide(pid: str):
-    p = store.get_item("calc_profiles", pid)
-    if not p:
-        err("profile not found", 404)
-    p["hidden"] = False
-    store.save_item("calc_profiles", p)
+    store.delete_item("calc_profiles", pid, allow_builtin=True)
     return {"ok": True}
 
 
@@ -390,6 +384,7 @@ def api_item_save(kind: str, item_id: str, data: dict = Body(...)):
     old = store.get_item(kind, item_id)
     if old and old.get("builtin"):
         data["builtin"] = True
+        data["edited"] = True          # never replaced by a newer starter version
     return store.save_item(kind, data)
 
 

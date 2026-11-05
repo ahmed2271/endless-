@@ -1,11 +1,12 @@
 name: r2SCAN-3c pre-opt → Opt + Freq (B3LYP D3BJ def2-SVP)
 description: Same as the XTB profile but pre-optimizes with r2SCAN-3c (no xtb needed).
-version: 1
+version: 2
 extraction_profile: standard
 columns:
 - {column: method}
 - {column: basis}
 - {column: dispersion}
+- {column: populations}
 defaults: {}
 resources: {nprocs: 2, maxcore: 1000}
 steps:
@@ -16,4 +17,4 @@ steps:
 - name: Opt + Freq
   slug: opt_freq
   type: opt_freq
-  values: {method: b3lyp, basis: def2svp, dispersion: d3bj}
+  values: {method: b3lyp, basis: def2svp, dispersion: d3bj, populations: [hirshfeld, mbis]}

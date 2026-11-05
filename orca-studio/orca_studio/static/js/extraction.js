@@ -137,7 +137,7 @@ const Ext = {
           pbox.innerHTML = "";
           const b = Ext.builtins.find(x => x.id === f.builtin) || {params: []};
           for (const prm of b.params) {
-            if (prm === "scheme") pbox.append(h("label", {class: "f"}, "Scheme", W.select(["mulliken", "loewdin", "hirshfeld", "mbis", "chelpg", "resp", "npa"].filter(x => !(f.builtin.startsWith("bond") && !["mayer", "loewdin"].includes(x))).concat(f.builtin.startsWith("bond") ? ["mayer"] : []), f.params.scheme || (f.builtin.startsWith("bond") ? "mayer" : "mulliken"), v => f.params.scheme = v)));
+            if (prm === "scheme") pbox.append(h("label", {class: "f"}, "Scheme", W.select(["hirshfeld", "mbis", "chelpg", "resp", "npa", "mulliken", "loewdin"].filter(x => !(f.builtin.startsWith("bond") && !["mayer", "loewdin"].includes(x))).concat(f.builtin.startsWith("bond") ? ["mayer"] : []), (f.params.scheme = f.params.scheme || (f.builtin.startsWith("bond") ? "mayer" : "hirshfeld")), v => f.params.scheme = v)));
             else if (prm === "spin") pbox.append(h("label", {class: "f"}, "Spin (open shell)", W.select(["alpha", "beta"], f.params.spin || "alpha", v => f.params.spin = v)));
             else if (prm === "which") pbox.append(h("label", {class: "f"}, "Orbital", W.select([{value: "homo", label: "HOMO − n"}, {value: "lumo", label: "LUMO + n"}], f.params.which || "homo", v => f.params.which = v)));
             else if (prm === "value") pbox.append(h("label", {class: "f"}, "Value", W.select(["charge", "spin", "population"], f.params.value || "charge", v => f.params.value = v)));
