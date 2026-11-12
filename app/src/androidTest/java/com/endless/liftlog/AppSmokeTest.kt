@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.hasAnyAncestor
@@ -136,6 +137,9 @@ class AppSmokeTest {
 
         clickTab("Home")
         waitForText("Start empty workout")
+        // Home comes back at its earlier scroll position; the Settings button is in the header.
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToIndex(0)
+        waitForDescription("Settings")
         compose.onNodeWithContentDescription("Settings").performClick()
         waitForText("Backup to Excel")
         scrollTo("Restore from Excel")
