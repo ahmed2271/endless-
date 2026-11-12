@@ -159,7 +159,7 @@ fun HomeScreen(
                 }
             }
         }
-        items(state.templates, key = { it.template.id }) { item ->
+        items(state.templates, key = { "template-${it.template.id}" }) { item ->
             TemplateCard(
                 item = item,
                 onStart = {
@@ -177,7 +177,7 @@ fun HomeScreen(
         if (!state.isLoading && state.recentRecords.isEmpty()) {
             item { Caption("Beat a previous best and it will show up here.") }
         }
-        items(state.recentRecords, key = { it.record.id }) { record ->
+        items(state.recentRecords, key = { "record-${it.record.id}" }) { record ->
             RecordRow(record, onClick = { onOpenExercise(record.record.exerciseId) })
         }
     }
