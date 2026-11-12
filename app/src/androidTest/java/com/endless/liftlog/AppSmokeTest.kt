@@ -2,7 +2,14 @@ package com.endless.liftlog
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -20,6 +27,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 
 /**
@@ -29,8 +38,16 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AppSmokeTest {
 
-    @get:Rule
+    @get:Rule(order = 0)
     val compose = createAndroidComposeRule<MainActivity>()
+
+    /** On failure, print what was on screen to logcat (tag "SmokeTest"); CI shows it in the job log. */
+    @get:Rule(order = 1)
+    val dumpScreenOnFailure = object : TestWatcher() {
+        override fun failed(e: Throwable?, description: Description?) {
+            runCatching { compose.onAllNodes(isRoot()).printToLog("SmokeTest") }
+        }
+    }
 
     @Before
     fun grantNotificationPermission() {
@@ -90,8 +107,9 @@ class AppSmokeTest {
         compose.onNodeWithContentDescription("Back").performClick()
 
         // Home lists both the template and the new PR (this crashed before the list-key fix).
-        waitForText("Heaviest weight · Today")
         waitForDescription("Start Push Day")
+        scrollTo("Heaviest weight · Today")
+        waitForText("Heaviest weight · Today")
 
         clickTab("History")
         compose.waitUntil(TIMEOUT) { compose.onAllNodesWithText("Push Day").fetchSemanticsNodes().size >= 2 }
@@ -120,6 +138,7 @@ class AppSmokeTest {
         waitForText("Start empty workout")
         compose.onNodeWithContentDescription("Settings").performClick()
         waitForText("Backup to Excel")
+        scrollTo("Restore from Excel")
         waitForText("Restore from Excel")
         compose.onNodeWithContentDescription("Back").performClick()
         waitForText("Start empty workout")
@@ -136,20 +155,29 @@ class AppSmokeTest {
         compose.onAllNodesWithText(label).filterToOne(hasClickAction()).performClick()
     }
 
-    private fun waitForText(text: String, substring: Boolean = false) {
-        compose.waitUntil(TIMEOUT) {
-            compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
-        }
+    /** Lazy lists only compose what's on screen: scroll the list until [text] is there. */
+    private fun scrollTo(text: String) {
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText(text))
     }
 
-    private fun waitForDescription(description: String) {
-        compose.waitUntil(TIMEOUT) {
-            compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().isNotEmpty()
-        }
+    private fun waitForText(text: String, substring: Boolean = false) = waitFor("text \"$text\"") {
+        compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     }
 
-    private fun waitUntilGone(text: String) {
-        compose.waitUntil(TIMEOUT) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty() }
+    private fun waitForDescription(description: String) = waitFor("content description \"$description\"") {
+        compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    private fun waitUntilGone(text: String) = waitFor("text \"$text\" to disappear") {
+        compose.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty()
+    }
+
+    private fun waitFor(what: String, condition: () -> Boolean) {
+        try {
+            compose.waitUntil(TIMEOUT, condition)
+        } catch (e: ComposeTimeoutException) {
+            throw AssertionError("Timed out after ${TIMEOUT / 1000} s waiting for $what", e)
+        }
     }
 
     private companion object {

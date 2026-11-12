@@ -29,6 +29,16 @@ adb logcat -d -b crash > "$out/debug-crash.txt"
 adb logcat -d > "$out/debug-logcat.txt"
 if app_crashed "$out/debug-crash.txt"; then status=1; fi
 
+if [ "$status" -ne 0 ]; then
+  # Failure details from the test results, and the screen contents the test dumped on failure.
+  echo "::group::Test failures"
+  find app/build/outputs/androidTest-results -name '*.xml' -exec sed -n '/<failure/,/<\/failure>/p' {} + | head -120
+  echo "::endgroup::"
+  echo "::group::Screen at failure (SmokeTest)"
+  grep "SmokeTest" "$out/debug-logcat.txt" | sed 's/^.*SmokeTest: //' | head -250
+  echo "::endgroup::"
+fi
+
 for f in "$out"/*-crash.txt; do
   if app_crashed "$f"; then
     echo "::group::Crash log: $f"
