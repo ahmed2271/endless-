@@ -21,7 +21,7 @@ class DataRescueCheck {
     private val step = InstrumentationRegistry.getArguments().getString("rescueStep")
 
     @Test
-    fun seed() = runBlocking {
+    fun seed(): Unit = runBlocking {
         assumeTrue(step == "seed")
         val container = app.container
         val squat = requireNotNull(container.database.exerciseDao().findByName("Back Squat")).id
@@ -36,7 +36,7 @@ class DataRescueCheck {
     }
 
     @Test
-    fun verify() = runBlocking {
+    fun verify(): Unit = runBlocking {
         assumeTrue(step == "verify")
         val container = app.container
         val templates = container.templateRepository.templates.first()
