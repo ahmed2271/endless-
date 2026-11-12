@@ -104,7 +104,23 @@ const Prof = {
       h("span", {class: "spacer"}),
       h("button", {class: "small", onclick: async () => { await App.post("/api/calc_profiles/default_layout", {columns: p.columns}); App.toast("This column layout is now the default for new profiles"); }}, "Use this layout for new profiles"));
     const detail = h("div");
-    main.append(h("h2", null, "Steps"), tools, tableWrap, detail);
+    const simpleWrap = h("div");
+    const advWrap = h("div", null, tools, tableWrap, detail);
+    let mode = (() => { try { return localStorage.getItem("profileEditorMode") || "simple"; } catch (e) { return "simple"; } })();
+    const modeTabs = W.tabs([["simple", "Simple"], ["table", "Advanced (table)"]], mode, m => setMode(m));
+    main.append(h("div", {class: "row", style: {alignItems: "flex-end"}}, h("h2", {style: {marginBottom: 0}}, "Steps"), h("span", {class: "spacer"})), modeTabs, simpleWrap, advWrap);
+    function setMode(m) {
+      mode = m;
+      try { localStorage.setItem("profileEditorMode", m); } catch (e) { /* private mode */ }
+      modeTabs.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.t === m));
+      simpleWrap.classList.toggle("hidden", m !== "simple");
+      advWrap.classList.toggle("hidden", m === "simple");
+      refresh();
+    }
+    function refresh() {
+      if (mode === "simple") Simple.calc(simpleWrap, p, C, {dirty, ensureCols, addStep, open: i => { st.sel = i; setMode("table"); }});
+      else drawAll();
+    }
 
     function dirty() { st.dirty = true; saveBtn.textContent = "Save •"; schedulePreview(); }
     function layoutCols() { return p.columns.filter(c => C.cols[c.column] && (st.showHidden || !c.hidden)); }
@@ -349,7 +365,7 @@ const Prof = {
     function resolveAdd(t) {
       const s = {name: t.label, slug: "", type: t.id, values: clone(t.default_values || {})};
       ensureCols(Object.keys(t.default_values || {}));
-      p.steps.push(s); st.sel = p.steps.length - 1; dirty(); drawAll();
+      p.steps.push(s); st.sel = p.steps.length - 1; dirty(); refresh();
     }
     async function insertTemplate() {
       await Prof.catalog();
@@ -404,7 +420,7 @@ const Prof = {
       return r;
     }
     window.onbeforeunload = () => st.dirty ? "unsaved" : undefined;
-    drawAll();
+    setMode(mode);
   },
 
   async addCustomEntry(col) {

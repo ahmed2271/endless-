@@ -244,7 +244,23 @@ const Ext = {
       if (i === null) p.fields.push(r); else p.fields[i] = r;
       draw();
     }
-    draw();
+    // Simple (switches) / Advanced (field list) views
+    const simpleWrap = h("div");
+    let mode = (() => { try { return localStorage.getItem("extractionEditorMode") || "simple"; } catch (e) { return "simple"; } })();
+    const toolbar = tbl.previousElementSibling;
+    const tabs = W.tabs([["simple", "Simple (switches)"], ["list", "Advanced (field list)"]], mode, m => setMode(m));
+    toolbar.before(tabs, simpleWrap);
+    function setMode(m) {
+      mode = m;
+      try { localStorage.setItem("extractionEditorMode", m); } catch (e) { /* private mode */ }
+      tabs.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.t === m));
+      simpleWrap.classList.toggle("hidden", m !== "simple");
+      for (const n of [startBox, toolbar, tbl]) n.classList.toggle("hidden", m === "simple");
+      if (m === "simple") Simple.extraction(simpleWrap, p, {dirty: () => {}}); else draw();
+    }
+    const saveBar = h("div", {class: "sticky-actions"}, h("button", {class: "primary", onclick: save}, "Save"));
+    main.append(saveBar);
+    setMode(mode);
   },
 
   async fieldDialog(f, prof) {

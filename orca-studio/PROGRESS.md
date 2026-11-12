@@ -140,6 +140,10 @@ Spec: `ORCA_Studio_SPEC.md` v1.0. This file is updated after every phase and maj
   included; they stay deleted). Folder/file picker (Browse…) for Analyze a folder, the new-batch
   folder and all program and folder paths in Settings (/api/browse lists folders on this computer).
 
+- Feedback round 8 (2026-11-12): Simple views (default) for both editors - step cards with menus,
+  sliders and on/off switches; extraction as grouped on/off switches (incl. HOMO−1/−2, LUMO+1/+2,
+  relative G/E). Advanced views unchanged. Browser-checked; 37 tests pass.
+
 ## Open problems
 
 - All [VERIFY] items are unconfirmed until `ORCA checks` runs on the workstation.

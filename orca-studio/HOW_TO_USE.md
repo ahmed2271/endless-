@@ -163,6 +163,15 @@ grouped by step.
 
 ## 8. Calculation profiles
 
+Both editors open in a **Simple** view. Calculation profile: one card per step with menus (method,
+basis set, dispersion, solvent), sliders (excited states, cores, memory) and on/off switches
+(frequencies after the optimization, tight SCF, Hirshfeld + MBIS charges, orbital pictures, density
+cube, MEP map), and *Results read from this step*. **+ Opt + Freq**, **+ Single point**, **+ TDDFT**
+add a step that copies method, basis and solvent from the step before. *Show input* displays the ORCA
+input. Extraction profile: everything that can be read, grouped, each with an on/off switch. The
+**Advanced** tab of each editor shows the full table / field list; both views edit the same profile.
+
+
 **Calculation profiles → + New profile** opens a table: one row per step, one column per setting.
 New profiles show Step, Method and Basis; **+ Add column** adds any other setting (dispersion,
 solvent, TDDFT roots, …) or a new column you define. Cells:
