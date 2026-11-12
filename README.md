@@ -57,3 +57,31 @@ Every push builds the debug and release APKs and runs the unit tests on GitHub A
 **Signing:** every build (local and CI) is signed with the same committed key (`app/signing/liftlog-sideload.jks`), and CI builds get an increasing `versionCode`. A newer APK therefore installs over the old one and keeps your data. APKs from before this change used a different key, so uninstall that version once before installing a new one. The committed key is fine for a personal, sideloaded app; switch to a private key before publishing it anywhere.
 
 On Android 13+ the app asks for notification permission when you start your first workout, so it can show the rest-timer countdown and alert. If you decline, the timer still vibrates.
+
+## Recovering data from an install that won't open
+
+The first version crashed on start once you had a template and a PR. Updating needs an uninstall (that version was signed with a different key), and an uninstall deletes the app's data. If that version is a **debug** build (`app-debug.apk`, or installed from Android Studio), you can copy its database out first and put it into the new version. A **release** build can't be read this way: Android doesn't allow it without root.
+
+You need a computer with [Android platform-tools](https://developer.android.com/tools/releases/platform-tools) (`adb`), and the phone connected with **USB debugging** turned on (Settings ▸ About phone ▸ tap *Build number* 7 times, then Settings ▸ Developer options ▸ USB debugging). These commands work in Terminal, Command Prompt and PowerShell.
+
+1. **Copy the data out** (nothing is deleted yet):
+   ```
+   adb shell am force-stop com.endless.liftlog
+   adb shell "run-as com.endless.liftlog cat databases/liftlog.db > /data/local/tmp/liftlog.db"
+   adb shell "run-as com.endless.liftlog cat databases/liftlog.db-wal > /data/local/tmp/liftlog.db-wal"
+   adb pull /data/local/tmp/liftlog.db
+   adb pull /data/local/tmp/liftlog.db-wal
+   ```
+   Check that `liftlog.db` is now on the computer and isn't empty (a few dozen KB or more). If `run-as` says *package not debuggable*, the installed copy is a release build and can't be recovered. Stop here and keep it installed.
+2. **Reinstall**: `adb uninstall com.endless.liftlog`, then `adb install app-debug.apk` using the new debug APK. **Don't open the app yet**: on first launch it would create an empty database.
+3. **Copy the data back in**:
+   ```
+   adb push liftlog.db liftlog.db-wal /data/local/tmp/
+   adb shell "run-as com.endless.liftlog mkdir -p databases"
+   adb shell "cat /data/local/tmp/liftlog.db | run-as com.endless.liftlog sh -c 'cat > databases/liftlog.db'"
+   adb shell "cat /data/local/tmp/liftlog.db-wal | run-as com.endless.liftlog sh -c 'cat > databases/liftlog.db-wal'"
+   adb shell rm /data/local/tmp/liftlog.db /data/local/tmp/liftlog.db-wal
+   ```
+4. Open LiftLog: your workouts are back. Make a backup right away (⚙ Settings ▸ Back up to Excel). If you prefer the release build, you can now install `app-release.apk` over it; both are signed with the same key, so your data stays.
+
+CI runs exactly these steps on an emulator on every push (`.github/scripts/emulator-smoke.sh`).
