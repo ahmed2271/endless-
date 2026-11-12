@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.endless.liftlog.crash.CrashReportHost
 import com.endless.liftlog.ui.navigation.LiftLogRoot
 import com.endless.liftlog.ui.theme.LiftLogTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LiftLogTheme {
                 LiftLogRoot(container, openWorkoutRequests)
+                CrashReportHost()
             }
         }
     }

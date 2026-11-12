@@ -2,6 +2,7 @@ package com.endless.liftlog
 
 import android.app.Application
 import android.content.Context
+import com.endless.liftlog.crash.CrashLog
 import com.endless.liftlog.data.db.LiftLogDatabase
 import com.endless.liftlog.data.repository.ExerciseRepository
 import com.endless.liftlog.data.repository.TemplateRepository
@@ -24,6 +25,7 @@ class LiftLogApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         container = AppContainer(this)
         RestNotifications.createChannels(this)
     }
