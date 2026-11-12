@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,14 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.endless.liftlog.data.db.SessionSummary
@@ -46,9 +46,9 @@ import com.endless.liftlog.ui.components.Caption
 import com.endless.liftlog.ui.components.EmptyState
 import com.endless.liftlog.ui.components.LiftCard
 import com.endless.liftlog.ui.components.PrBadge
-import com.endless.liftlog.ui.components.SectionHeader
+import com.endless.liftlog.ui.components.Pill
+import com.endless.liftlog.ui.components.TabHeader
 import com.endless.liftlog.ui.components.SegmentedTabs
-import com.endless.liftlog.util.formatDay
 import com.endless.liftlog.util.formatDuration
 import com.endless.liftlog.util.formatLongDay
 import com.endless.liftlog.util.formatMonth
@@ -61,7 +61,6 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel,
@@ -70,26 +69,24 @@ fun HistoryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("History") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        },
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
+                TabHeader(
+                    title = "History",
+                    subtitle = "${state.sessions.size} ${if (state.sessions.size == 1) "workout" else "workouts"} logged",
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
                 SegmentedTabs(
                     options = listOf("List", "Calendar"),
                     selectedIndex = tab,
                     onSelect = { tab = it },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
             }
             if (state.isLoading) return@LazyColumn
             if (tab == 0) {
@@ -104,10 +101,7 @@ fun HistoryScreen(
                 }
                 state.sessions.groupBy { YearMonth.from(it.date) }.forEach { (month, sessions) ->
                     item(key = "month-$month") {
-                        SectionHeader(
-                            "${formatMonth(month.atDay(1))} · ${sessions.size}",
-                            Modifier.padding(horizontal = 4.dp),
-                        )
+                        MonthLabel("${formatMonth(month.atDay(1))} · ${sessions.size}")
                     }
                     items(sessions, key = { it.id }) { session ->
                         SessionCard(session, onClick = { onOpenSession(session.id) })
@@ -125,10 +119,7 @@ fun HistoryScreen(
                     )
                 }
                 item {
-                    SectionHeader(
-                        state.selectedDate?.let(::formatLongDay) ?: formatMonth(state.month.atDay(1)),
-                        Modifier.padding(horizontal = 4.dp),
-                    )
+                    MonthLabel(state.selectedDate?.let(::formatLongDay) ?: formatMonth(state.month.atDay(1)))
                 }
                 val shown = state.calendarSessions
                 if (shown.isEmpty()) {
@@ -143,38 +134,62 @@ fun HistoryScreen(
 }
 
 @Composable
+private fun MonthLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
 fun SessionCard(session: SessionSummary, onClick: () -> Unit) {
-    LiftCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    LiftCard(onClick = onClick, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            DateTile(session.date)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(session.name, style = MaterialTheme.typography.titleMedium)
-                Caption(
-                    "${formatDay(session.date)} · ${formatTime(session.startTime)} · " +
-                        formatDuration(session.startTime, session.endTime),
+                Text(
+                    session.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Caption("${formatTime(session.startTime)} · ${formatDuration(session.startTime, session.endTime)}")
             }
             if (session.prCount > 0) {
                 PrBadge(text = if (session.prCount == 1) "PR" else "${session.prCount} PRs")
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            MiniStat("${session.exerciseCount}", if (session.exerciseCount == 1) "exercise" else "exercises")
-            MiniStat("${session.workingSetCount}", if (session.workingSetCount == 1) "set" else "sets")
-            MiniStat(formatVolume(session.volume), "volume")
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill("${session.exerciseCount} ${if (session.exerciseCount == 1) "exercise" else "exercises"}")
+            Pill("${session.workingSetCount} ${if (session.workingSetCount == 1) "set" else "sets"}")
+            Pill(formatVolume(session.volume))
         }
     }
 }
 
 @Composable
-private fun MiniStat(value: String, label: String) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        Text(value, style = MaterialTheme.typography.labelLarge, modifier = Modifier.alignByBaseline())
+private fun DateTile(date: LocalDate) {
+    Column(
+        modifier = Modifier
+            .size(52.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(
-            " $label",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.alignByBaseline(),
+            date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+        )
+        Text(
+            date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }
@@ -254,7 +269,7 @@ private fun DayCell(
     val background = when {
         isSelected -> colors.primary
         hasWorkout -> colors.primaryContainer
-        else -> colors.surfaceContainerLow
+        else -> Color.Transparent
     }
     val content = when {
         isSelected -> colors.onPrimary

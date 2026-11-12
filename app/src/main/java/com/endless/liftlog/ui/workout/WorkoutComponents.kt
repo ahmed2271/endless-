@@ -19,17 +19,22 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -49,7 +54,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,8 +67,10 @@ import androidx.compose.ui.unit.dp
 import com.endless.liftlog.data.db.SetEntry
 import com.endless.liftlog.timer.RestTimer
 import com.endless.liftlog.timer.RestTimerState
+import com.endless.liftlog.ui.components.Pill
 import com.endless.liftlog.ui.components.PrBadge
 import com.endless.liftlog.ui.theme.TabularNumbers
+import com.endless.liftlog.ui.theme.extended
 import com.endless.liftlog.util.formatClock
 import com.endless.liftlog.util.formatKg
 import com.endless.liftlog.util.formatRpe
@@ -87,69 +98,237 @@ private fun secondsSince(start: Instant): Long =
 /** RPE values offered in the picker: 1 to 10 in half steps. */
 val RpeValues: List<Double> = (2..20).map { it / 2.0 }
 
+// Column widths shared by the set table header and rows.
+private val SetColumn = 36.dp
+private val KgColumn = 74.dp
+private val RepsColumn = 58.dp
+private val CheckColumn = 42.dp
+private val ColumnGap = 6.dp
+
+@Composable
+fun SetTableHeader() {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(ColumnGap),
+    ) {
+        HeaderText("SET", Modifier.width(SetColumn))
+        HeaderText("PREVIOUS", Modifier.weight(1f))
+        HeaderText("KG", Modifier.width(KgColumn))
+        HeaderText("REPS", Modifier.width(RepsColumn))
+        Box(Modifier.width(CheckColumn), contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Rounded.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeaderText(text: String, modifier: Modifier) {
+    Text(
+        text,
+        modifier = modifier,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+}
+
 /**
- * Big "[−] value [+]" control. The value is also directly editable with the number keyboard.
+ * One set: number (tap for warm-up / RPE / delete), what was done last time, weight and reps
+ * inputs, and the check button that logs it. Logged rows turn green; tap their values to edit.
  */
 @Composable
-fun NumberStepper(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    step: Double,
-    allowDecimal: Boolean,
-    modifier: Modifier = Modifier,
+fun SetTableRow(
+    row: SetRowUi,
+    onWeightChange: (String) -> Unit,
+    onRepsChange: (String) -> Unit,
+    onCheck: () -> Unit,
+    onEditLogged: () -> Unit,
+    onToggleWarmup: () -> Unit,
+    onSetRpe: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    fun shift(delta: Double) {
-        val current = parseDecimal(value) ?: 0.0
-        val next = max(0.0, current + delta)
-        onValueChange(if (allowDecimal) formatWeight(next) else next.toInt().toString())
-    }
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = { shift(-step) }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Rounded.Remove, contentDescription = "Decrease $label")
+    val ext = MaterialTheme.extended
+    val done = row is SetRowUi.Done
+    var menu by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (done) ext.successContainer else Color.Transparent)
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(ColumnGap),
+        ) {
+            Box(
+                Modifier
+                    .width(SetColumn)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { menu = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    row.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = when {
+                        row.isWarmup -> MaterialTheme.colorScheme.tertiary
+                        done -> ext.onSuccessContainer
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(if (row.isWarmup) "Make working set" else "Make warm-up set") },
+                        onClick = {
+                            menu = false
+                            onToggleWarmup()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (row.rpe == null) "Add RPE" else "Change RPE") },
+                        onClick = {
+                            menu = false
+                            onSetRpe()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete set", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            menu = false
+                            onDelete()
+                        },
+                    )
+                }
             }
-            BasicTextField(
-                value = value,
-                onValueChange = { input ->
-                    val cleaned = input.filter { it.isDigit() || (allowDecimal && (it == '.' || it == ',')) }
-                    if (cleaned.length <= 6) onValueChange(cleaned)
-                },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.headlineSmall.merge(TabularNumbers).copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,
-                    imeAction = ImeAction.Done,
-                ),
-                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.Center) {
-                        if (value.isEmpty()) {
-                            Text(
-                                "0",
-                                style = MaterialTheme.typography.headlineSmall.merge(TabularNumbers),
-                                color = MaterialTheme.colorScheme.outline,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                        inner()
-                    }
-                },
+            Text(
+                row.previous ?: "—",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
+                color = if (done) ext.onSuccessContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
             )
-            FilledTonalIconButton(onClick = { shift(step) }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Rounded.Add, contentDescription = "Increase $label")
+            when (row) {
+                is SetRowUi.Pending -> {
+                    NumberCell(
+                        value = row.pending.weight,
+                        onValueChange = onWeightChange,
+                        allowDecimal = true,
+                        description = "Weight for set ${row.label}",
+                        modifier = Modifier.width(KgColumn),
+                    )
+                    NumberCell(
+                        value = row.pending.reps,
+                        onValueChange = onRepsChange,
+                        allowDecimal = false,
+                        description = "Reps for set ${row.label}",
+                        modifier = Modifier.width(RepsColumn),
+                    )
+                }
+                is SetRowUi.Done -> {
+                    LoggedValue(formatWeight(row.set.weight), Modifier.width(KgColumn), onEditLogged)
+                    LoggedValue(row.set.reps.toString(), Modifier.width(RepsColumn), onEditLogged)
+                }
+            }
+            Box(
+                Modifier
+                    .width(CheckColumn)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (done) ext.success else ext.field)
+                    .clickable(onClick = onCheck),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Check,
+                    contentDescription = if (done) "Undo set ${row.label}" else "Complete set ${row.label}",
+                    tint = if (done) ext.onSuccess else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
+        val isRecord = row is SetRowUi.Done && row.isRecord
+        if (row.rpe != null || isRecord) {
+            Row(
+                Modifier.padding(start = SetColumn + ColumnGap, top = 2.dp, bottom = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                row.rpe?.let { Pill("RPE ${formatRpe(it)}") }
+                if (isRecord) PrBadge()
+            }
+        }
+    }
+}
+
+@Composable
+private fun NumberCell(
+    value: String,
+    onValueChange: (String) -> Unit,
+    allowDecimal: Boolean,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    val ext = MaterialTheme.extended
+    BasicTextField(
+        value = value,
+        onValueChange = { input ->
+            val cleaned = input.filter { it.isDigit() || (allowDecimal && (it == '.' || it == ',')) }
+            if (cleaned.length <= 6) onValueChange(cleaned)
+        },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.titleSmall.merge(TabularNumbers).copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+        ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (allowDecimal) KeyboardType.Decimal else KeyboardType.Number,
+            imeAction = ImeAction.Next,
+        ),
+        modifier = modifier.height(38.dp).semantics { contentDescription = description },
+        decorationBox = { inner ->
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(ext.field)
+                    .padding(horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (value.isEmpty()) {
+                    Text(
+                        "–",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                inner()
+            }
+        },
+    )
+}
+
+@Composable
+private fun LoggedValue(text: String, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(38.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall.merge(TabularNumbers),
+            color = MaterialTheme.extended.onSuccessContainer,
+        )
     }
 }
 
@@ -168,13 +347,47 @@ fun RpePicker(value: Double?, onChange: (Double?) -> Unit, modifier: Modifier = 
                 selected = value == rpe,
                 onClick = { onChange(if (value == rpe) null else rpe) },
                 label = { Text(formatRpe(rpe), style = MaterialTheme.typography.labelLarge) },
+                shape = RoundedCornerShape(50),
                 modifier = Modifier.heightIn(min = 40.dp),
             )
         }
     }
 }
 
-/** A logged set: number badge, weight × reps, RPE and PR flag. */
+@Composable
+fun RpeDialog(current: Double?, onSelect: (Double?) -> Unit, onDismiss: () -> Unit) {
+    var value by rememberSaveable { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rate of perceived exertion") },
+        text = {
+            Column {
+                Text(
+                    "How hard was the set? 10 = maximal effort, 8 = two reps left in the tank.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                RpePicker(value = value, onChange = { value = it })
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSelect(value)
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                onSelect(null)
+                onDismiss()
+            }) { Text("Clear") }
+        },
+        containerColor = MaterialTheme.extended.card,
+    )
+}
+
+/** Read-only set line for history screens: number badge, weight × reps, RPE and PR flag. */
 @Composable
 fun SetRow(
     label: String,
@@ -187,16 +400,19 @@ fun SetRow(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 44.dp)
-            .padding(vertical = 4.dp),
+            .heightIn(min = 40.dp)
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .background(
-                    if (set.isWarmup) MaterialTheme.colorScheme.surfaceContainerHighest
-                    else MaterialTheme.colorScheme.primaryContainer,
+                    if (set.isWarmup) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
                     CircleShape,
                 ),
             contentAlignment = Alignment.Center,
@@ -204,25 +420,25 @@ fun SetRow(
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (set.isWarmup) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (set.isWarmup) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                },
             )
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             "${formatKg(set.weight)}  ×  ${set.reps}",
             style = MaterialTheme.typography.bodyLarge.merge(TabularNumbers),
+            fontWeight = FontWeight.SemiBold,
             color = if (set.isWarmup) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
         set.rpe?.let {
-            Text(
-                "RPE ${formatRpe(it)}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(8.dp))
+            Pill("RPE ${formatRpe(it)}")
+            Spacer(Modifier.width(6.dp))
         }
         if (isRecord) PrBadge()
     }
@@ -254,6 +470,7 @@ fun EditSetDialog(
                         onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
                         label = { Text("Weight (kg)") },
                         singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                     )
@@ -262,6 +479,7 @@ fun EditSetDialog(
                         onValueChange = { reps = it.filter(Char::isDigit) },
                         label = { Text("Reps") },
                         singleLine = true,
+                        shape = MaterialTheme.shapes.medium,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                     )
@@ -301,11 +519,12 @@ fun EditSetDialog(
                 onDismiss()
             }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         },
+        containerColor = MaterialTheme.extended.card,
     )
 }
 
 /**
- * Docked rest countdown with quick ±15 s and skip. Calls [onElapsed] when it hits zero while
+ * Floating rest countdown with quick ±15 s and skip. Calls [onElapsed] when it hits zero while
  * visible; the background alarm covers the case where the app isn't on screen.
  */
 @Composable
@@ -331,62 +550,72 @@ fun RestTimerBar(
     }
     val total = max(1, state.durationSeconds) * 1_000f
     val progress = (remainingMs.coerceAtLeast(0L) / total).coerceIn(0f, 1f)
+    val ext = MaterialTheme.extended
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.large.copy(
-            bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp),
-            bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp),
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+        shape = MaterialTheme.shapes.large,
+        color = ext.card,
+        shadowElevation = 10.dp,
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 20.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                drawStopIndicator = {},
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .clickable(onClick = onOpenSettings),
-                ) {
-                    Text(
-                        "Rest",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        formatClock((remainingMs.coerceAtLeast(0L) + 999L) / 1_000L),
-                        style = MaterialTheme.typography.headlineMedium.merge(TabularNumbers),
-                    )
-                }
-                OutlinedButton(
-                    onClick = { onAdjust(-15) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                ) { Text("−15") }
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(
-                    onClick = { onAdjust(15) },
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                ) { Text("+15") }
-                Spacer(Modifier.width(8.dp))
-                FilledTonalButton(
-                    onClick = onSkip,
-                    modifier = Modifier.heightIn(min = 48.dp),
-                ) { Text("Skip") }
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(48.dp),
+                    strokeWidth = 5.dp,
+                    trackColor = ext.field,
+                )
+                Icon(
+                    Icons.Rounded.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
             }
+            Spacer(Modifier.width(12.dp))
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onOpenSettings),
+            ) {
+                Text(
+                    "Rest",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    formatClock((remainingMs.coerceAtLeast(0L) + 999L) / 1_000L),
+                    style = MaterialTheme.typography.headlineMedium.merge(TabularNumbers),
+                )
+            }
+            TimerButton("−15") { onAdjust(-15) }
+            Spacer(Modifier.width(6.dp))
+            TimerButton("+15") { onAdjust(15) }
+            Spacer(Modifier.width(6.dp))
+            FilledTonalButton(
+                onClick = onSkip,
+                modifier = Modifier.heightIn(min = 44.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+            ) { Text("Skip") }
         }
     }
+}
+
+@Composable
+private fun TimerButton(text: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = 44.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp),
+    ) { Text(text, style = MaterialTheme.typography.labelLarge.merge(TabularNumbers)) }
 }
 
 /** Change the default rest length, or start a timer manually. */
@@ -409,22 +638,7 @@ fun RestSettingsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilledTonalIconButton(
-                        onClick = { seconds = (seconds - 15).coerceAtLeast(RestTimer.MIN_SECONDS) },
-                        modifier = Modifier.size(56.dp),
-                    ) { Icon(Icons.Rounded.Remove, contentDescription = "15 seconds less") }
-                    Text(
-                        formatClock(seconds.toLong()),
-                        style = MaterialTheme.typography.displaySmall.merge(TabularNumbers),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.width(140.dp),
-                    )
-                    FilledTonalIconButton(
-                        onClick = { seconds = (seconds + 15).coerceAtMost(RestTimer.MAX_SECONDS) },
-                        modifier = Modifier.size(56.dp),
-                    ) { Icon(Icons.Rounded.Add, contentDescription = "15 seconds more") }
-                }
+                RestDurationStepper(seconds = seconds, onChange = { seconds = it })
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = {
@@ -443,5 +657,27 @@ fun RestSettingsDialog(
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = MaterialTheme.extended.card,
     )
+}
+
+/** "[−] 1:30 [+]" in 15 second steps. */
+@Composable
+fun RestDurationStepper(seconds: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalIconButton(
+            onClick = { onChange((seconds - 15).coerceAtLeast(RestTimer.MIN_SECONDS)) },
+            modifier = Modifier.size(52.dp),
+        ) { Icon(Icons.Rounded.Remove, contentDescription = "15 seconds less") }
+        Text(
+            formatClock(seconds.toLong()),
+            style = MaterialTheme.typography.headlineLarge.merge(TabularNumbers),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(120.dp),
+        )
+        FilledTonalIconButton(
+            onClick = { onChange((seconds + 15).coerceAtMost(RestTimer.MAX_SECONDS)) },
+            modifier = Modifier.size(52.dp),
+        ) { Icon(Icons.Rounded.Add, contentDescription = "15 seconds more") }
+    }
 }

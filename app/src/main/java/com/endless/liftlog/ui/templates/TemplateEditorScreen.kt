@@ -23,7 +23,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.endless.liftlog.ui.components.Caption
 import com.endless.liftlog.ui.components.ConfirmDialog
+import com.endless.liftlog.ui.components.ExerciseAvatar
 import com.endless.liftlog.ui.components.ExercisePickerSheet
 import com.endless.liftlog.ui.components.LiftCard
 import com.endless.liftlog.ui.components.SectionHeader
@@ -60,6 +62,7 @@ fun TemplateEditorScreen(
     var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -67,11 +70,13 @@ fun TemplateEditorScreen(
                 },
                 title = { Text(if (state.isNew) "New template" else "Edit template") },
                 actions = {
-                    TextButton(onClick = { viewModel.save(onDone) }, enabled = state.canSave) {
-                        Text("Save")
-                    }
+                    Button(
+                        onClick = { viewModel.save(onDone) },
+                        enabled = state.canSave,
+                        modifier = Modifier.padding(end = 8.dp),
+                    ) { Text("Save") }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { padding ->
@@ -88,6 +93,7 @@ fun TemplateEditorScreen(
                     label = { Text("Template name") },
                     placeholder = { Text("e.g. Push Day") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -100,19 +106,15 @@ fun TemplateEditorScreen(
             itemsIndexed(state.items, key = { _, item -> item.exerciseId }) { index, item ->
                 LiftCard(
                     modifier = Modifier.animateItem(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    contentPadding = PaddingValues(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "${index + 1}",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.width(16.dp))
+                        ExerciseAvatar(item.name, item.muscleGroup)
+                        Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                item.name,
-                                style = MaterialTheme.typography.bodyLarge,
+                                "${index + 1}. ${item.name}",
+                                style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -132,9 +134,9 @@ fun TemplateEditorScreen(
             }
             item {
                 Spacer(Modifier.height(4.dp))
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = { picking = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = null)

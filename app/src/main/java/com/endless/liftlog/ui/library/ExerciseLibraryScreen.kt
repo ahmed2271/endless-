@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,22 +18,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,12 +45,14 @@ import com.endless.liftlog.ui.components.ConfirmDialog
 import com.endless.liftlog.ui.components.EmptyState
 import com.endless.liftlog.ui.components.ExerciseEditorDialog
 import com.endless.liftlog.ui.components.MuscleGroupFilter
-import com.endless.liftlog.ui.components.SectionHeader
+import com.endless.liftlog.ui.components.ExerciseAvatar
+import com.endless.liftlog.ui.components.LiftCard
+import com.endless.liftlog.ui.components.SearchField
+import com.endless.liftlog.ui.components.TabHeader
 
 /** Which exercise editor is open: a new one ([exercise] == null) or an existing custom one. */
 private data class EditorState(val exercise: Exercise?, val error: String? = null)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExerciseLibraryScreen(
     viewModel: ExerciseLibraryViewModel,
@@ -64,68 +63,72 @@ fun ExerciseLibraryScreen(
     var editor by remember { mutableStateOf<EditorState?>(null) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Exercises") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { editor = EditorState(null) },
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
                 text = { Text("New exercise") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::setQuery,
-                placeholder = { Text("Search ${state.totalCount} exercises") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setQuery("") }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Clear search")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            MuscleGroupFilter(selected = state.group, onSelect = viewModel::setGroup)
-            Spacer(Modifier.height(4.dp))
-
-            if (state.exercises.isEmpty() && state.totalCount > 0) {
-                EmptyState(
-                    icon = Icons.Rounded.SearchOff,
-                    title = "No matches",
-                    message = "Try another name or muscle group, or add it as a new exercise.",
+        val grouped = state.exercises.groupBy { it.muscleGroup }.toSortedMap()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                TabHeader(
+                    title = "Exercises",
+                    subtitle = "${state.totalCount} in your library",
+                    modifier = Modifier.padding(horizontal = 20.dp),
                 )
+                SearchField(
+                    value = state.query,
+                    onValueChange = viewModel::setQuery,
+                    placeholder = "Search exercises",
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                Spacer(Modifier.height(12.dp))
+                MuscleGroupFilter(selected = state.group, onSelect = viewModel::setGroup)
             }
-
-            val grouped = state.exercises.groupBy { it.muscleGroup }.toSortedMap()
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 96.dp),
-            ) {
-                grouped.forEach { (group, exercises) ->
-                    item(key = "header-${group.name}") {
-                        SectionHeader(
+            if (state.exercises.isEmpty() && state.totalCount > 0) {
+                item {
+                    EmptyState(
+                        icon = Icons.Rounded.SearchOff,
+                        title = "No matches",
+                        message = "Try another name or muscle group, or add it as a new exercise.",
+                    )
+                }
+            }
+            grouped.forEach { (group, exercises) ->
+                item(key = "group-${group.name}") {
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        Text(
                             "${group.label} · ${exercises.size}",
-                            modifier = Modifier.padding(horizontal = 20.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
                         )
-                    }
-                    items(exercises, key = { it.id }) { exercise ->
-                        ExerciseRow(
-                            exercise = exercise,
-                            onClick = { onOpenExercise(exercise.id) },
-                            onEdit = { editor = EditorState(exercise) },
-                            onDelete = { viewModel.requestDelete(exercise) },
-                        )
+                        LiftCard(contentPadding = PaddingValues(vertical = 4.dp)) {
+                            exercises.forEachIndexed { index, exercise ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 68.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                    )
+                                }
+                                ExerciseRow(
+                                    exercise = exercise,
+                                    onClick = { onOpenExercise(exercise.id) },
+                                    onEdit = { editor = EditorState(exercise) },
+                                    onDelete = { viewModel.requestDelete(exercise) },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -186,14 +189,16 @@ private fun ExerciseRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .heightIn(min = 56.dp)
-            .padding(start = 20.dp, end = 8.dp),
+            .heightIn(min = 60.dp)
+            .padding(start = 14.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        ExerciseAvatar(exercise.name, exercise.muscleGroup)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(
                 exercise.name,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

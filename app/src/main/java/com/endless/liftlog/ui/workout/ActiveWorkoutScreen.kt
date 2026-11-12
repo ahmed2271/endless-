@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,7 +20,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
@@ -29,11 +27,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,6 +41,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -58,14 +56,14 @@ import com.endless.liftlog.data.db.SetEntry
 import com.endless.liftlog.ui.components.Caption
 import com.endless.liftlog.ui.components.ConfirmDialog
 import com.endless.liftlog.ui.components.EmptyState
+import com.endless.liftlog.ui.components.ExerciseAvatar
 import com.endless.liftlog.ui.components.ExercisePickerSheet
 import com.endless.liftlog.ui.components.LiftCard
+import com.endless.liftlog.ui.components.Pill
 import com.endless.liftlog.ui.components.TextInputDialog
 import com.endless.liftlog.ui.theme.TabularNumbers
 import com.endless.liftlog.util.formatClock
-import com.endless.liftlog.util.formatRpe
 import com.endless.liftlog.util.formatVolume
-import com.endless.liftlog.util.formatWeight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +87,7 @@ fun ActiveWorkoutScreen(
     var showSaveTemplate by remember { mutableStateOf(false) }
     var showRestSettings by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SetEntry?>(null) }
+    var rpeTarget by remember { mutableStateOf<Pair<Long, SetRowUi>?>(null) }
 
     val finished by rememberUpdatedState(onFinished)
     val discarded by rememberUpdatedState(onDiscarded)
@@ -104,6 +103,7 @@ fun ActiveWorkoutScreen(
 
     val session = state.session
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -124,7 +124,7 @@ fun ActiveWorkoutScreen(
                             Text(
                                 formatClock(elapsed),
                                 style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
@@ -136,7 +136,7 @@ fun ActiveWorkoutScreen(
                         }
                         Button(
                             onClick = { showFinish = true },
-                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            contentPadding = PaddingValues(horizontal = 18.dp),
                         ) { Text("Finish") }
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Rounded.MoreVert, contentDescription = "More")
@@ -166,7 +166,7 @@ fun ActiveWorkoutScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         bottomBar = {
@@ -189,7 +189,7 @@ fun ActiveWorkoutScreen(
                 title = "No workout in progress",
                 message = "Start a workout from the home screen.",
                 modifier = Modifier.padding(padding),
-                action = { OutlinedButton(onClick = onBack) { Text("Go back") } },
+                action = { FilledTonalButton(onClick = onBack) { Text("Go back") } },
             )
             else -> LazyColumn(
                 modifier = Modifier
@@ -197,12 +197,14 @@ fun ActiveWorkoutScreen(
                     .padding(padding)
                     .consumeWindowInsets(padding)
                     .imePadding(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item(key = "summary") {
-                    Row(Modifier.padding(horizontal = 4.dp)) {
-                        Caption("${state.workingSets} working sets · ${formatVolume(state.volume)}")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Pill("${state.workingSets} ${if (state.workingSets == 1) "set" else "sets"}")
+                        Pill(formatVolume(state.volume))
+                        Pill("${state.blocks.size} ${if (state.blocks.size == 1) "exercise" else "exercises"}")
                     }
                 }
                 if (state.blocks.isEmpty()) {
@@ -210,7 +212,7 @@ fun ActiveWorkoutScreen(
                         EmptyState(
                             icon = Icons.Rounded.FitnessCenter,
                             title = "Add your first exercise",
-                            message = "Pick exercises from the library, then log sets as you go.",
+                            message = "Pick exercises from the library, then tick off sets as you go.",
                         )
                     }
                 }
@@ -219,9 +221,23 @@ fun ActiveWorkoutScreen(
                         block = block,
                         canMoveUp = index > 0,
                         canMoveDown = index < state.blocks.lastIndex,
-                        onDraftChange = { viewModel.updateDraft(block.exerciseId, it) },
-                        onLog = { viewModel.logSet(block.exerciseId) },
-                        onEditSet = { editing = it },
+                        onWeightChange = { key, value ->
+                            viewModel.updatePending(block.exerciseId, key) { it.copy(weight = value) }
+                        },
+                        onRepsChange = { key, value ->
+                            viewModel.updatePending(block.exerciseId, key) { it.copy(reps = value) }
+                        },
+                        onCheck = { row ->
+                            when (row) {
+                                is SetRowUi.Pending -> viewModel.completeSet(block.exerciseId, row.pending.key)
+                                is SetRowUi.Done -> viewModel.undoSet(row.set)
+                            }
+                        },
+                        onEditLogged = { editing = it },
+                        onToggleWarmup = { viewModel.toggleWarmup(block.exerciseId, it) },
+                        onSetRpe = { rpeTarget = block.exerciseId to it },
+                        onDeleteRow = { viewModel.deleteRow(block.exerciseId, it) },
+                        onAddSet = { viewModel.addSet(block.exerciseId) },
                         onMove = { viewModel.moveExercise(block.exerciseId, it) },
                         onRemove = { viewModel.removeExercise(block.exerciseId) },
                         onOpenHistory = { onOpenExercise(block.exerciseId) },
@@ -229,14 +245,19 @@ fun ActiveWorkoutScreen(
                     )
                 }
                 item(key = "add") {
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = { showPicker = true },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = MaterialTheme.shapes.medium,
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Add exercise")
+                        Text("Add exercises", style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+                item(key = "discard") {
+                    TextButton(onClick = { showDiscard = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Discard workout", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -265,14 +286,25 @@ fun ActiveWorkoutScreen(
         )
     }
 
+    rpeTarget?.let { (exerciseId, row) ->
+        RpeDialog(
+            current = row.rpe,
+            onSelect = { viewModel.setRpe(exerciseId, row, it) },
+            onDismiss = { rpeTarget = null },
+        )
+    }
+
     if (showFinish) {
-        val hasSets = state.blocks.any { it.sets.isNotEmpty() }
+        val hasSets = state.blocks.any { block -> block.rows.any { it is SetRowUi.Done } }
+        val unlogged = state.blocks.sumOf { block -> block.rows.count { it is SetRowUi.Pending } }
         ConfirmDialog(
             title = "Finish workout?",
-            text = if (hasSets) {
-                "${state.workingSets} working sets, ${formatVolume(state.volume)} total."
-            } else {
-                "No sets were logged, so this workout will be discarded."
+            text = when {
+                !hasSets -> "No sets were logged, so this workout will be discarded."
+                unlogged > 0 ->
+                    "${state.workingSets} working sets, ${formatVolume(state.volume)}. " +
+                        "$unlogged unticked ${if (unlogged == 1) "set" else "sets"} won't be saved."
+                else -> "${state.workingSets} working sets, ${formatVolume(state.volume)} total."
             },
             confirmLabel = "Finish",
             onConfirm = viewModel::finish,
@@ -317,7 +349,7 @@ fun ActiveWorkoutScreen(
         RestSettingsDialog(
             defaultSeconds = timer.defaultSeconds,
             onChangeDefault = viewModel::setDefaultRest,
-            onStartNow = { viewModel.startRest(it) },
+            onStartNow = viewModel::startRest,
             onDismiss = { showRestSettings = false },
         )
     }
@@ -328,9 +360,14 @@ private fun ExerciseCard(
     block: ExerciseBlockUi,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
-    onDraftChange: (SetDraft) -> Unit,
-    onLog: () -> Unit,
-    onEditSet: (SetEntry) -> Unit,
+    onWeightChange: (Long, String) -> Unit,
+    onRepsChange: (Long, String) -> Unit,
+    onCheck: (SetRowUi) -> Unit,
+    onEditLogged: (SetEntry) -> Unit,
+    onToggleWarmup: (SetRowUi) -> Unit,
+    onSetRpe: (SetRowUi) -> Unit,
+    onDeleteRow: (SetRowUi) -> Unit,
+    onAddSet: () -> Unit,
     onMove: (Int) -> Unit,
     onRemove: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -338,13 +375,17 @@ private fun ExerciseCard(
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
-    var showRpe by rememberSaveable(block.exerciseId) { mutableStateOf(false) }
-    val draft = block.draft
+    val loggedCount = block.rows.count { it is SetRowUi.Done }
 
-    LiftCard(modifier = modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 16.dp)) {
+    LiftCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(top = 8.dp)) {
-                Text(block.name, style = MaterialTheme.typography.titleMedium)
+            ExerciseAvatar(block.name, block.muscleGroup)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(block.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Caption(block.muscleGroup.label)
             }
             IconButton(onClick = { menu = true }) {
@@ -371,93 +412,42 @@ private fun ExerciseCard(
                     text = { Text("Remove exercise", color = MaterialTheme.colorScheme.error) },
                     onClick = {
                         menu = false
-                        if (block.sets.isEmpty()) onRemove() else confirmRemove = true
+                        if (loggedCount == 0) onRemove() else confirmRemove = true
                     },
                 )
             }
         }
-
-        Column(Modifier.padding(end = 12.dp)) {
-            if (block.previous.isNotEmpty()) {
-                val summary = block.previous.filter { !it.isWarmup }.ifEmpty { block.previous }
-                    .joinToString("  ·  ") { "${formatWeight(it.weight)}×${it.reps}" }
-                Caption("Last time: $summary", Modifier.padding(top = 2.dp))
-            }
-            if (block.sets.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                block.sets.forEach { row ->
-                    SetRow(
-                        label = row.label,
-                        set = row.set,
-                        isRecord = row.isRecord,
-                        onClick = { onEditSet(row.set) },
-                    )
+        Spacer(Modifier.height(10.dp))
+        SetTableHeader()
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            block.rows.forEach { row ->
+                val plannedKey = (row as? SetRowUi.Pending)?.pending?.key
+                val identity = if (row is SetRowUi.Done) "done-${row.set.id}" else "planned-$plannedKey"
+                key(identity) {
+                SetTableRow(
+                    row = row,
+                    onWeightChange = { value -> plannedKey?.let { onWeightChange(it, value) } },
+                    onRepsChange = { value -> plannedKey?.let { onRepsChange(it, value) } },
+                    onCheck = { onCheck(row) },
+                    onEditLogged = { (row as? SetRowUi.Done)?.let { onEditLogged(it.set) } },
+                    onToggleWarmup = { onToggleWarmup(row) },
+                    onSetRpe = { onSetRpe(row) },
+                    onDelete = { onDeleteRow(row) },
+                )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                NumberStepper(
-                    label = "kg",
-                    value = draft.weight,
-                    onValueChange = { onDraftChange(draft.copy(weight = it)) },
-                    step = 2.5,
-                    allowDecimal = true,
-                    modifier = Modifier.weight(1f),
-                )
-                NumberStepper(
-                    label = "reps",
-                    value = draft.reps,
-                    onValueChange = { onDraftChange(draft.copy(reps = it)) },
-                    step = 1.0,
-                    allowDecimal = false,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = draft.isWarmup,
-                    onClick = { onDraftChange(draft.copy(isWarmup = !draft.isWarmup)) },
-                    label = { Text("Warm-up") },
-                    modifier = Modifier.heightIn(min = 40.dp),
-                )
-                FilterChip(
-                    selected = draft.rpe != null || showRpe,
-                    onClick = { showRpe = !showRpe },
-                    label = { Text(draft.rpe?.let { "RPE ${formatRpe(it)}" } ?: "RPE") },
-                    modifier = Modifier.heightIn(min = 40.dp),
-                )
-            }
-            AnimatedVisibility(visible = showRpe) {
-                RpePicker(
-                    value = draft.rpe,
-                    onChange = { onDraftChange(draft.copy(rpe = it)) },
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    onLog()
-                    showRpe = false
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = MaterialTheme.shapes.medium,
-            ) {
-                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (draft.isWarmup) "Log warm-up set" else "Log set",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+        }
+        TextButton(onClick = onAddSet, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Add set")
         }
     }
 
     if (confirmRemove) {
         ConfirmDialog(
             title = "Remove ${block.name}?",
-            text = "The ${block.sets.size} sets logged for it in this workout will be deleted.",
+            text = "The $loggedCount sets logged for it in this workout will be deleted.",
             confirmLabel = "Remove",
             destructive = true,
             onConfirm = onRemove,

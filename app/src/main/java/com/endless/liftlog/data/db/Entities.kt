@@ -8,22 +8,6 @@ import androidx.room.PrimaryKey
 import java.time.Instant
 import java.time.LocalDate
 
-enum class MuscleGroup(val label: String) {
-    CHEST("Chest"),
-    BACK("Back"),
-    SHOULDERS("Shoulders"),
-    BICEPS("Biceps"),
-    TRICEPS("Triceps"),
-    FOREARMS("Forearms"),
-    QUADS("Quads"),
-    HAMSTRINGS("Hamstrings"),
-    GLUTES("Glutes"),
-    CALVES("Calves"),
-    CORE("Core"),
-    FULL_BODY("Full body"),
-    OTHER("Other"),
-}
-
 @Entity(
     tableName = "exercise",
     indices = [Index(value = ["name"], unique = true)],

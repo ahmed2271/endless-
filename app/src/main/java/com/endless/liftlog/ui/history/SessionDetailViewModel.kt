@@ -6,7 +6,7 @@ import com.endless.liftlog.data.db.MuscleGroup
 import com.endless.liftlog.data.db.WorkoutSession
 import com.endless.liftlog.data.repository.TemplateRepository
 import com.endless.liftlog.data.repository.WorkoutRepository
-import com.endless.liftlog.ui.workout.LoggedSetUi
+import com.endless.liftlog.data.db.SetEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** A logged set with its display label ("W" or the working-set number). */
+data class LoggedSetUi(
+    val set: SetEntry,
+    val label: String,
+    val isRecord: Boolean,
+)
 
 data class SessionExerciseUi(
     val exerciseId: Long,

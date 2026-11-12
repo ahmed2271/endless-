@@ -21,6 +21,9 @@ data object RecordsRoute
 data object ActiveWorkoutRoute
 
 @Serializable
+data object SettingsRoute
+
+@Serializable
 data class SessionDetailRoute(val sessionId: Long)
 
 @Serializable

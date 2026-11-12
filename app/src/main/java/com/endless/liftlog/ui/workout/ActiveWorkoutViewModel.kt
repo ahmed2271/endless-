@@ -2,6 +2,7 @@ package com.endless.liftlog.ui.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.endless.liftlog.data.backup.BackupManager
 import com.endless.liftlog.data.db.Exercise
 import com.endless.liftlog.data.db.MuscleGroup
 import com.endless.liftlog.data.db.SetEntry
@@ -24,34 +25,56 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
-/** What the user has typed for the next set of an exercise. */
-data class SetDraft(
-    val weight: String = "",
-    val reps: String = "",
+/** A planned set that hasn't been logged yet (only lives in memory). */
+data class PendingSet(
+    val key: Long,
+    val weight: String,
+    val reps: String,
     val isWarmup: Boolean = false,
     val rpe: Double? = null,
 )
 
-data class LoggedSetUi(
-    val set: SetEntry,
+/** One row of an exercise's set table. */
+sealed interface SetRowUi {
     /** "W" for warm-ups, otherwise the working-set number. */
-    val label: String,
-    val isRecord: Boolean,
-)
+    val label: String
+
+    /** What was done in the same position last time, e.g. "80 × 5". */
+    val previous: String?
+    val isWarmup: Boolean
+    val rpe: Double?
+
+    data class Done(
+        val set: SetEntry,
+        override val label: String,
+        override val previous: String?,
+        val isRecord: Boolean,
+    ) : SetRowUi {
+        override val isWarmup get() = set.isWarmup
+        override val rpe get() = set.rpe
+    }
+
+    data class Pending(
+        val pending: PendingSet,
+        override val label: String,
+        override val previous: String?,
+    ) : SetRowUi {
+        override val isWarmup get() = pending.isWarmup
+        override val rpe get() = pending.rpe
+    }
+}
 
 data class ExerciseBlockUi(
     val exerciseId: Long,
     val name: String,
     val muscleGroup: MuscleGroup,
-    val sets: List<LoggedSetUi>,
-    val previous: List<SetEntry>,
-    val draft: SetDraft,
+    val rows: List<SetRowUi>,
 )
 
 data class ActiveWorkoutUiState(
@@ -74,10 +97,14 @@ class ActiveWorkoutViewModel(
     private val exercises: ExerciseRepository,
     private val templates: TemplateRepository,
     private val restTimer: RestTimer,
+    private val backup: BackupManager,
 ) : ViewModel() {
 
-    private val drafts = MutableStateFlow<Map<Long, SetDraft>>(emptyMap())
+    private val pending = MutableStateFlow<Map<Long, List<PendingSet>>>(emptyMap())
     private val previousSets = MutableStateFlow<Map<Long, List<SetEntry>>>(emptyMap())
+    private val initialized = mutableSetOf<Long>()
+    private var trackedSessionId: Long? = null
+    private val keys = AtomicLong(1)
     private val eventChannel = Channel<WorkoutEvent>(Channel.BUFFERED)
 
     val events: Flow<WorkoutEvent> = eventChannel.receiveAsFlow()
@@ -94,21 +121,20 @@ class ActiveWorkoutViewModel(
                     workouts.observeSessionExercises(session.id),
                     workouts.observeSets(session.id),
                     workouts.observeSessionRecords(session.id),
-                    drafts,
+                    pending,
                     previousSets,
-                ) { sessionExercises, sets, records, draftMap, previousMap ->
+                ) { sessionExercises, sets, records, pendingMap, previousMap ->
                     val recordSetIds = records.map { it.setId }.toSet()
                     val setsByExercise = sets.groupBy { it.exerciseId }
                     val blocks = sessionExercises.map { item ->
-                        val exerciseSets = setsByExercise[item.exerciseId].orEmpty().sortedBy { it.setNumber }
-                        val previous = previousMap[item.exerciseId].orEmpty()
-                        ExerciseBlockUi(
+                        buildBlock(
                             exerciseId = item.exerciseId,
                             name = item.name,
-                            muscleGroup = item.muscleGroup,
-                            sets = labelSets(exerciseSets, recordSetIds),
-                            previous = previous,
-                            draft = draftMap[item.exerciseId] ?: defaultDraft(exerciseSets, previous),
+                            group = item.muscleGroup,
+                            done = setsByExercise[item.exerciseId].orEmpty().sortedBy { it.setNumber },
+                            planned = pendingMap[item.exerciseId].orEmpty(),
+                            previous = previousMap[item.exerciseId].orEmpty(),
+                            recordSetIds = recordSetIds,
                         )
                     }
                     val working = sets.filter { !it.isWarmup }
@@ -125,60 +151,115 @@ class ActiveWorkoutViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActiveWorkoutUiState())
 
     init {
-        // Load "last time" sets for every exercise as it's added to the workout.
+        // For each exercise added to the workout: load what was done last time and plan the rows.
         viewModelScope.launch {
             workouts.activeSession.filterNotNull()
                 .flatMapLatest { session ->
-                    workouts.observeSessionExercises(session.id).map { list -> session.id to list.map { it.exerciseId } }
+                    combine(workouts.observeSessionExercises(session.id), workouts.observeSets(session.id)) { list, sets ->
+                        Triple(session.id, list.map { it.exerciseId }, sets)
+                    }
                 }
-                .collect { (sessionId, exerciseIds) ->
+                .collect { (sessionId, exerciseIds, sets) ->
+                    if (trackedSessionId != sessionId) {
+                        trackedSessionId = sessionId
+                        initialized.clear()
+                        pending.value = emptyMap()
+                        previousSets.value = emptyMap()
+                    }
                     val missing = exerciseIds.filterNot { it in previousSets.value }
                     if (missing.isNotEmpty()) {
                         val loaded = missing.associateWith { workouts.previousSets(it, sessionId) }
                         previousSets.update { it + loaded }
                     }
+                    val toPlan = exerciseIds.filterNot { it in initialized }
+                    if (toPlan.isNotEmpty()) {
+                        val planned = toPlan.associateWith { id ->
+                            initialRows(sets.filter { it.exerciseId == id }, previousSets.value[id].orEmpty())
+                        }
+                        initialized += toPlan
+                        pending.update { it + planned }
+                    }
                 }
         }
     }
 
-    fun updateDraft(exerciseId: Long, draft: SetDraft) {
-        drafts.update { it + (exerciseId to draft) }
+    // ---------------------------------------------------------------- set table
+
+    fun updatePending(exerciseId: Long, key: Long, transform: (PendingSet) -> PendingSet) {
+        pending.update { map ->
+            map + (exerciseId to map[exerciseId].orEmpty().map { if (it.key == key) transform(it) else it })
+        }
     }
 
-    fun logSet(exerciseId: Long) {
+    fun addSet(exerciseId: Long) {
+        val block = uiState.value.blocks.firstOrNull { it.exerciseId == exerciseId } ?: return
+        val previous = previousSets.value[exerciseId].orEmpty().getOrNull(block.rows.size)
+        val last = block.rows.lastOrNull()
+        val row = when {
+            previous != null -> newPending(formatWeight(previous.weight), previous.reps.toString())
+            last is SetRowUi.Pending -> newPending(last.pending.weight, last.pending.reps)
+            last is SetRowUi.Done -> newPending(formatWeight(last.set.weight), last.set.reps.toString())
+            else -> newPending("", "")
+        }
+        pending.update { it + (exerciseId to it[exerciseId].orEmpty() + row) }
+    }
+
+    /** Logs a planned set (the check button), then starts the rest timer. */
+    fun completeSet(exerciseId: Long, key: Long) {
         val session = uiState.value.session ?: return
         val block = uiState.value.blocks.firstOrNull { it.exerciseId == exerciseId } ?: return
-        val draft = block.draft
-        val reps = draft.reps.trim().toIntOrNull()
+        val row = pending.value[exerciseId].orEmpty().firstOrNull { it.key == key } ?: return
+        val reps = row.reps.trim().toIntOrNull()
         if (reps == null || reps <= 0) {
-            send("Enter the number of reps")
+            send("Enter the reps for this set")
             return
         }
         // A blank weight is logged as 0 kg (bodyweight movements).
-        val weight = if (draft.weight.isBlank()) 0.0 else parseDecimal(draft.weight)
+        val weight = if (row.weight.isBlank()) 0.0 else parseDecimal(row.weight)
         if (weight == null || weight < 0) {
             send("Enter a valid weight")
             return
         }
+        // Remove the row first so a double tap can't log it twice.
+        removePending(exerciseId, key)
         viewModelScope.launch {
-            val result = workouts.logSet(
-                sessionId = session.id,
-                exerciseId = exerciseId,
-                weight = weight,
-                reps = reps,
-                rpe = draft.rpe,
-                isWarmup = draft.isWarmup,
-            )
-            // Keep weight/reps for the next set; RPE is per set.
-            drafts.update {
-                it + (exerciseId to draft.copy(weight = formatWeight(weight), reps = reps.toString(), rpe = null))
+            val result = runCatching {
+                workouts.logSet(session.id, exerciseId, weight, reps, row.rpe, row.isWarmup)
+            }.getOrElse {
+                pending.update { map -> map + (exerciseId to listOf(row) + map[exerciseId].orEmpty()) }
+                send("Couldn't save the set")
+                return@launch
             }
             restTimer.start()
             result.record?.let { record ->
-                val kind = if (record.isWeightRecord) "Heaviest" else "Best est. 1RM"
+                val kind = if (record.isWeightRecord) "heaviest weight" else "best est. 1RM"
                 send("New PR · ${block.name} ${formatKg(weight)} × $reps ($kind)")
             }
         }
+    }
+
+    /** Un-checks a logged set: it's deleted and goes back to being a planned row. */
+    fun undoSet(set: SetEntry) {
+        viewModelScope.launch {
+            workouts.deleteSet(set)
+            val row = newPending(formatWeight(set.weight), set.reps.toString(), set.isWarmup, set.rpe)
+            pending.update { it + (set.exerciseId to listOf(row) + it[set.exerciseId].orEmpty()) }
+        }
+    }
+
+    fun toggleWarmup(exerciseId: Long, row: SetRowUi) = when (row) {
+        is SetRowUi.Pending -> updatePending(exerciseId, row.pending.key) { it.copy(isWarmup = !it.isWarmup) }
+        is SetRowUi.Done -> updateSet(row.set.copy(isWarmup = !row.set.isWarmup))
+    }
+
+    fun setRpe(exerciseId: Long, row: SetRowUi, rpe: Double?) = when (row) {
+        is SetRowUi.Pending -> updatePending(exerciseId, row.pending.key) { it.copy(rpe = rpe) }
+        is SetRowUi.Done -> updateSet(row.set.copy(rpe = rpe))
+    }
+
+    fun deleteRow(exerciseId: Long, row: SetRowUi) = when (row) {
+        is SetRowUi.Pending -> removePending(exerciseId, row.pending.key)
+        is SetRowUi.Done -> deleteSet(row.set)
     }
 
     fun updateSet(set: SetEntry) {
@@ -189,6 +270,12 @@ class ActiveWorkoutViewModel(
         viewModelScope.launch { workouts.deleteSet(set) }
     }
 
+    private fun removePending(exerciseId: Long, key: Long) {
+        pending.update { map -> map + (exerciseId to map[exerciseId].orEmpty().filterNot { it.key == key }) }
+    }
+
+    // ---------------------------------------------------------------- exercises & workout
+
     fun addExercises(ids: List<Long>) {
         val session = uiState.value.session ?: return
         viewModelScope.launch { workouts.addExercises(session.id, ids) }
@@ -198,7 +285,8 @@ class ActiveWorkoutViewModel(
         val session = uiState.value.session ?: return
         viewModelScope.launch {
             workouts.removeExercise(session.id, exerciseId)
-            drafts.update { it - exerciseId }
+            pending.update { it - exerciseId }
+            initialized -= exerciseId
         }
     }
 
@@ -234,6 +322,7 @@ class ActiveWorkoutViewModel(
         viewModelScope.launch {
             restTimer.stop()
             val kept = workouts.finishWorkout(session.id)
+            if (kept) backup.autoBackupAfterWorkout()
             eventChannel.send(if (kept) WorkoutEvent.Finished(session.id) else WorkoutEvent.Discarded)
         }
     }
@@ -248,7 +337,7 @@ class ActiveWorkoutViewModel(
     }
 
     // Rest timer controls.
-    fun startRest(seconds: Int? = null) = if (seconds == null) restTimer.start() else restTimer.start(seconds)
+    fun startRest(seconds: Int) = restTimer.start(seconds)
     fun adjustRest(deltaSeconds: Int) = restTimer.adjust(deltaSeconds)
     fun skipRest() = restTimer.stop()
     fun restElapsed() = restTimer.complete()
@@ -258,24 +347,34 @@ class ActiveWorkoutViewModel(
         viewModelScope.launch { eventChannel.send(WorkoutEvent.Message(text)) }
     }
 
-    private fun labelSets(sets: List<SetEntry>, recordSetIds: Set<Long>): List<LoggedSetUi> {
-        var working = 0
-        return sets.map { set ->
-            val label = if (set.isWarmup) "W" else (++working).toString()
-            LoggedSetUi(set, label, set.id in recordSetIds)
+    private fun newPending(weight: String, reps: String, isWarmup: Boolean = false, rpe: Double? = null) =
+        PendingSet(keys.getAndIncrement(), weight, reps, isWarmup, rpe)
+
+    /** Plan the rows for a newly added exercise from what was done last time. */
+    private fun initialRows(logged: List<SetEntry>, previous: List<SetEntry>): List<PendingSet> = when {
+        logged.isEmpty() && previous.isEmpty() -> listOf(newPending("", ""))
+        else -> previous.drop(logged.size).map {
+            newPending(formatWeight(it.weight), it.reps.toString(), it.isWarmup)
         }
     }
 
-    /** Pre-fill the next set from this workout's last set, or the first working set last time. */
-    private fun defaultDraft(current: List<SetEntry>, previous: List<SetEntry>): SetDraft {
-        val source = current.lastOrNull()
-            ?: previous.firstOrNull { !it.isWarmup }
-            ?: previous.firstOrNull()
-            ?: return SetDraft()
-        return SetDraft(
-            weight = formatWeight(source.weight),
-            reps = source.reps.toString(),
-            isWarmup = current.lastOrNull()?.isWarmup ?: false,
-        )
+    private fun buildBlock(
+        exerciseId: Long,
+        name: String,
+        group: MuscleGroup,
+        done: List<SetEntry>,
+        planned: List<PendingSet>,
+        previous: List<SetEntry>,
+        recordSetIds: Set<Long>,
+    ): ExerciseBlockUi {
+        var working = 0
+        fun label(isWarmup: Boolean) = if (isWarmup) "W" else (++working).toString()
+        fun previousAt(index: Int) = previous.getOrNull(index)?.let { "${formatWeight(it.weight)} × ${it.reps}" }
+        val rows = done.mapIndexed { i, set ->
+            SetRowUi.Done(set, label(set.isWarmup), previousAt(i), set.id in recordSetIds)
+        } + planned.mapIndexed { i, p ->
+            SetRowUi.Pending(p, label(p.isWarmup), previousAt(done.size + i))
+        }
+        return ExerciseBlockUi(exerciseId, name, group, rows)
     }
 }

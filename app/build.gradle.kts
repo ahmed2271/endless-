@@ -17,13 +17,29 @@ android {
         applicationId = "com.endless.liftlog"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // CI builds count up with the workflow run, so a newer APK always installs as an update.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // One fixed key for every build (local and CI), so each new APK installs over the previous
+        // one and keeps your data. It's committed on purpose: this app is sideloaded, not published.
+        // Use your own private key before distributing it anywhere.
+        create("sideload") {
+            storeFile = file("signing/liftlog-sideload.jks")
+            storePassword = "liftlog-sideload"
+            keyAlias = "liftlog"
+            keyPassword = "liftlog-sideload"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("sideload")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -31,9 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Signed with the debug key so the release APK can be sideloaded directly.
-            // Replace with your own signing config before distributing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("sideload")
         }
     }
 

@@ -24,6 +24,8 @@ data class HomeUiState(
     val recentRecords: List<PrWithExercise> = emptyList(),
     val workoutsThisWeek: Int = 0,
     val volumeThisWeek: Double = 0.0,
+    val trainedDays: Set<LocalDate> = emptySet(),
+    val totalWorkouts: Int = 0,
 )
 
 class HomeViewModel(
@@ -47,6 +49,8 @@ class HomeViewModel(
             recentRecords = records,
             workoutsThisWeek = thisWeek.size,
             volumeThisWeek = thisWeek.sumOf { it.volume },
+            trainedDays = thisWeek.map { it.date }.toSet() + listOfNotNull(active?.date),
+            totalWorkouts = sessions.size,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

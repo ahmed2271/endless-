@@ -19,6 +19,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.FitnessCenter
+import com.endless.liftlog.ui.components.ExerciseAvatar
+import com.endless.liftlog.ui.components.StatTile
+import com.endless.liftlog.ui.components.TabHeader
+import com.endless.liftlog.ui.theme.extended
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,25 +81,19 @@ fun ProgressScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var picking by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Progress") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        },
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
+                TabHeader(title = "Progress", subtitle = "Your lifts over time", modifier = Modifier.padding(horizontal = 4.dp))
                 SegmentedTabs(
                     options = listOf("Exercise", "Workout volume"),
                     selectedIndex = tab,
                     onSelect = { tab = it },
                 )
-                Spacer(Modifier.height(16.dp))
             }
             if (state.isLoading) return@LazyColumn
             if (tab == 0) {
@@ -105,10 +107,7 @@ fun ProgressScreen(
                         )
                     }
                 } else {
-                    item {
-                        ExerciseSelector(progress.exercise, onClick = { picking = true })
-                        Spacer(Modifier.height(16.dp))
-                    }
+                    item { ExerciseSelector(progress.exercise, onClick = { picking = true }) }
                     exerciseProgressItems(progress, onOpenSession)
                 }
             } else {
@@ -140,6 +139,7 @@ fun ExerciseDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val progress = state.exercise
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -163,13 +163,14 @@ fun ExerciseDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (progress != null) exerciseProgressItems(progress, onOpenSession)
         }
@@ -178,8 +179,10 @@ fun ExerciseDetailScreen(
 
 @Composable
 private fun ExerciseSelector(exercise: Exercise, onClick: () -> Unit) {
-    LiftCard(onClick = onClick) {
+    LiftCard(onClick = onClick, contentPadding = PaddingValues(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            ExerciseAvatar(exercise.name, exercise.muscleGroup, size = 44.dp)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(exercise.name, style = MaterialTheme.typography.titleMedium)
                 Caption(exercise.muscleGroup.label)
@@ -208,25 +211,30 @@ private fun LazyListScope.exerciseProgressItems(
         return
     }
     item {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-            Stat(
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(
                 label = "Heaviest",
                 value = progress.heaviest?.let { "${formatWeight(it.weight)} × ${it.reps}" } ?: "–",
-                modifier = Modifier.weight(1.2f),
+                icon = Icons.Rounded.FitnessCenter,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
             )
-            Stat(
+            StatTile(
                 label = "Best est. 1RM",
                 value = progress.bestEstimated
-                    ?.let { formatKg(estimatedOneRepMax(it.weight, it.reps).roundTo(1)) } ?: "–",
-                modifier = Modifier.weight(1.2f),
+                    ?.let { formatWeight(estimatedOneRepMax(it.weight, it.reps).roundTo(1)) } ?: "–",
+                icon = Icons.Rounded.EmojiEvents,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.weight(1f),
             )
-            Stat(
+            StatTile(
                 label = "Workouts",
                 value = progress.sessionCount.toString(),
-                modifier = Modifier.weight(0.8f),
+                icon = Icons.Rounded.CalendarMonth,
+                tint = MaterialTheme.extended.success,
+                modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(16.dp))
     }
     if (progress.maxWeightPoints.isNotEmpty()) {
         item {
@@ -243,7 +251,6 @@ private fun LazyListScope.exerciseProgressItems(
                     axisFormatter = { formatWeight(it.roundTo(0)) },
                 )
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
     item { SectionHeader("History", Modifier.padding(horizontal = 4.dp)) }
@@ -276,7 +283,6 @@ private fun LazyListScope.exerciseProgressItems(
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -293,12 +299,11 @@ private fun LazyListScope.volumeItems(volume: VolumeProgress, onOpenSession: (Lo
         return
     }
     item {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-            Stat("Workouts", volume.workoutCount.toString(), Modifier.weight(0.8f))
-            Stat("Average", formatVolume(volume.averageVolume), Modifier.weight(1.1f))
-            Stat("Best", formatVolume(volume.bestVolume), Modifier.weight(1.1f))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile("Workouts", volume.workoutCount.toString(), Icons.Rounded.CalendarMonth, MaterialTheme.colorScheme.primary, Modifier.weight(0.9f))
+            StatTile("Average", formatCompact(volume.averageVolume) + " kg", Icons.Rounded.Insights, MaterialTheme.extended.success, Modifier.weight(1f))
+            StatTile("Best", formatCompact(volume.bestVolume) + " kg", Icons.Rounded.EmojiEvents, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
         }
-        Spacer(Modifier.height(16.dp))
     }
     item {
         LiftCard {
@@ -310,23 +315,17 @@ private fun LazyListScope.volumeItems(volume: VolumeProgress, onOpenSession: (Lo
                 axisFormatter = { formatCompact(it) },
             )
         }
-        Spacer(Modifier.height(8.dp))
     }
     item { SectionHeader("Workouts", Modifier.padding(horizontal = 4.dp)) }
     items(volume.sessions, key = { it.id }) { session ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onOpenSession(session.id) }
-                .heightIn(min = 56.dp)
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(session.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Caption(formatDay(session.date))
+        LiftCard(onClick = { onOpenSession(session.id) }, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(session.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Caption(formatDay(session.date))
+                }
+                Text(formatVolume(session.volume), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers))
             }
-            Text(formatVolume(session.volume), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers))
         }
     }
 }
@@ -342,7 +341,7 @@ private fun SingleExercisePickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.background,
     ) {
         Column(Modifier.fillMaxHeight(0.85f)) {
             Text(

@@ -43,6 +43,12 @@ interface ExerciseDao {
 
     @Delete
     suspend fun delete(exercise: Exercise)
+
+    @Query("SELECT * FROM exercise ORDER BY name")
+    suspend fun getAll(): List<Exercise>
+
+    @Query("DELETE FROM exercise")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -90,6 +96,26 @@ interface TemplateDao {
 
     @Query("DELETE FROM template_exercise WHERE templateId = :templateId")
     suspend fun clearTemplateExercises(templateId: Long)
+
+    @Query("SELECT * FROM workout_template ORDER BY name")
+    suspend fun getTemplates(): List<WorkoutTemplate>
+
+    @Query(
+        """
+        SELECT te.id AS id, te.templateId AS templateId, te.exerciseId AS exerciseId,
+               te.position AS position, e.name AS name, e.muscleGroup AS muscleGroup
+        FROM template_exercise te
+        JOIN exercise e ON e.id = te.exerciseId
+        ORDER BY te.templateId, te.position
+        """,
+    )
+    suspend fun getAllTemplateExercises(): List<TemplateExerciseDetail>
+
+    @Query("DELETE FROM template_exercise")
+    suspend fun deleteAllTemplateExercises()
+
+    @Query("DELETE FROM workout_template")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -139,6 +165,15 @@ interface SessionDao {
     @Query("DELETE FROM session_exercise WHERE sessionId = :sessionId AND exerciseId = :exerciseId")
     suspend fun deleteSessionExercise(sessionId: Long, exerciseId: Long)
 
+    @Query("SELECT * FROM workout_session ORDER BY startTime")
+    suspend fun getAllSessions(): List<WorkoutSession>
+
+    @Query("DELETE FROM session_exercise")
+    suspend fun deleteAllSessionExercises()
+
+    @Query("DELETE FROM workout_session")
+    suspend fun deleteAll()
+
     @Query(
         """
         SELECT s.id AS id, s.name AS name, s.date AS date, s.startTime AS startTime,
@@ -163,6 +198,18 @@ interface SessionDao {
 interface SetDao {
     @Insert
     suspend fun insert(set: SetEntry): Long
+
+    @Insert
+    suspend fun insertAll(sets: List<SetEntry>)
+
+    @Query("SELECT * FROM set_entry ORDER BY sessionId, exerciseId, setNumber")
+    suspend fun getAll(): List<SetEntry>
+
+    @Query("SELECT DISTINCT exerciseId FROM set_entry")
+    suspend fun getExerciseIdsWithSets(): List<Long>
+
+    @Query("DELETE FROM set_entry")
+    suspend fun deleteAll()
 
     @Update
     suspend fun update(set: SetEntry)
@@ -261,6 +308,19 @@ interface SetDao {
 interface PersonalRecordDao {
     @Query("DELETE FROM personal_record WHERE exerciseId = :exerciseId")
     suspend fun deleteForExercise(exerciseId: Long)
+
+    @Query("DELETE FROM personal_record")
+    suspend fun deleteAll()
+
+    @Query(
+        """
+        SELECT pr.*, e.name AS exerciseName
+        FROM personal_record pr
+        JOIN exercise e ON e.id = pr.exerciseId
+        ORDER BY e.name, pr.achievedAt
+        """,
+    )
+    suspend fun getAllWithExercise(): List<PrWithExercise>
 
     @Insert
     suspend fun insertAll(records: List<PersonalRecord>)

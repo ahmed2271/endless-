@@ -173,6 +173,11 @@ class WorkoutRepository(private val db: LiftLogDatabase) {
     suspend fun sessionExerciseIds(sessionId: Long): List<Long> =
         sessionDao.getSessionExercises(sessionId).map { it.exerciseId }
 
+    /** Rebuilds the PR log for every exercise that has sets (used after a restore). */
+    suspend fun recomputeAllRecords() = db.withTransaction {
+        setDao.getExerciseIdsWithSets().forEach { recomputeRecords(it) }
+    }
+
     /**
      * Rebuilds the PR log for one exercise from its full set history, so edits and deletions of
      * older sets keep the log consistent.

@@ -12,28 +12,33 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,11 +59,16 @@ import com.endless.liftlog.data.db.PrWithExercise
 import com.endless.liftlog.data.db.WorkoutSession
 import com.endless.liftlog.data.repository.TemplateWithExercises
 import com.endless.liftlog.ui.components.Caption
+import com.endless.liftlog.ui.components.GradientCard
+import com.endless.liftlog.ui.components.IconCircle
 import com.endless.liftlog.ui.components.LiftCard
+import com.endless.liftlog.ui.components.Pill
 import com.endless.liftlog.ui.components.SectionHeader
-import com.endless.liftlog.ui.components.Stat
+import com.endless.liftlog.ui.components.TabHeader
+import com.endless.liftlog.ui.components.WeekStrip
 import com.endless.liftlog.ui.navigation.NEW_TEMPLATE
 import com.endless.liftlog.ui.theme.TabularNumbers
+import com.endless.liftlog.ui.theme.extended
 import com.endless.liftlog.ui.workout.rememberElapsedSeconds
 import com.endless.liftlog.util.formatClock
 import com.endless.liftlog.util.formatKg
@@ -65,6 +76,7 @@ import com.endless.liftlog.util.formatLongDay
 import com.endless.liftlog.util.formatRelativeDay
 import com.endless.liftlog.util.formatVolume
 import java.time.LocalDate
+import java.time.LocalTime
 
 @Composable
 fun HomeScreen(
@@ -72,6 +84,7 @@ fun HomeScreen(
     onOpenWorkout: () -> Unit,
     onEditTemplate: (Long) -> Unit,
     onOpenExercise: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -94,51 +107,36 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text(
-                "LiftLog",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(formatLongDay(LocalDate.now()), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(24.dp))
+            TabHeader(title = greeting(), subtitle = formatLongDay(LocalDate.now())) {
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                }
+            }
         }
 
         item {
             val active = state.activeSession
-            if (active != null) {
-                ActiveWorkoutCard(active, onResume = onOpenWorkout)
-            } else {
-                Button(
-                    onClick = { start(null) },
-                    modifier = Modifier.fillMaxWidth().height(64.dp),
-                    shape = MaterialTheme.shapes.medium,
-                ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Start workout", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            Spacer(Modifier.height(20.dp))
+            if (active != null) ActiveWorkoutHero(active, onResume = onOpenWorkout) else StartHero(onStart = { start(null) })
         }
 
         item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Stat(
-                    label = "Workouts this week",
-                    value = state.workoutsThisWeek.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-                Stat(
-                    label = "Volume this week",
-                    value = formatVolume(state.volumeThisWeek),
-                    modifier = Modifier.weight(1f),
-                )
+            LiftCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("This week", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(
+                        "${state.workoutsThisWeek} ${if (state.workoutsThisWeek == 1) "workout" else "workouts"} · " +
+                            formatVolume(state.volumeThisWeek),
+                        style = MaterialTheme.typography.labelMedium.merge(TabularNumbers),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                WeekStrip(state.trainedDays)
             }
-            Spacer(Modifier.height(16.dp))
         }
 
         item {
@@ -153,12 +151,18 @@ fun HomeScreen(
         if (!state.isLoading && state.templates.isEmpty()) {
             item {
                 LiftCard(onClick = { onEditTemplate(NEW_TEMPLATE) }) {
-                    Text("Create your first template", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(2.dp))
-                    Caption("Save a routine like “Push Day” and start it with one tap.")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconCircle(Icons.Rounded.Add, MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text("Create your first template", style = MaterialTheme.typography.titleSmall)
+                            Caption("Save a routine like “Push Day” and start it with one tap.")
+                        }
+                    }
                 }
             }
         }
+        // Templates and PR records share this list and their database ids overlap: prefix the keys.
         items(state.templates, key = { "template-${it.template.id}" }) { item ->
             TemplateCard(
                 item = item,
@@ -167,18 +171,29 @@ fun HomeScreen(
                 },
                 onEdit = { onEditTemplate(item.template.id) },
             )
-            Spacer(Modifier.height(8.dp))
         }
 
-        item {
-            Spacer(Modifier.height(16.dp))
-            SectionHeader("Recent PRs")
-        }
+        item { SectionHeader("Recent PRs") }
         if (!state.isLoading && state.recentRecords.isEmpty()) {
-            item { Caption("Beat a previous best and it will show up here.") }
+            item {
+                LiftCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconCircle(Icons.Rounded.EmojiEvents, MaterialTheme.colorScheme.tertiary)
+                        Spacer(Modifier.width(14.dp))
+                        Caption("Beat a previous best weight or estimated 1RM and it shows up here.")
+                    }
+                }
+            }
         }
-        items(state.recentRecords, key = { "record-${it.record.id}" }) { record ->
-            RecordRow(record, onClick = { onOpenExercise(record.record.exerciseId) })
+        if (state.recentRecords.isNotEmpty()) {
+            item(key = "records") {
+                LiftCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+                    state.recentRecords.forEachIndexed { index, record ->
+                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        RecordRow(record, onClick = { onOpenExercise(record.record.exerciseId) })
+                    }
+                }
+            }
         }
     }
 
@@ -194,56 +209,105 @@ fun HomeScreen(
                 }) { Text("Resume workout") }
             },
             dismissButton = { TextButton(onClick = { busyTemplate = null }) { Text("Cancel") } },
+            containerColor = MaterialTheme.extended.card,
         )
     }
 }
 
+private fun greeting(): String = when (LocalTime.now().hour) {
+    in 5..11 -> "Good morning"
+    in 12..17 -> "Good afternoon"
+    else -> "Good evening"
+}
+
 @Composable
-private fun ActiveWorkoutCard(session: WorkoutSession, onResume: () -> Unit) {
+private fun StartHero(onStart: () -> Unit) {
+    GradientCard(Modifier.fillMaxWidth()) {
+        Text("Ready to train?", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Start an empty workout or pick one of your templates.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.82f),
+        )
+        Spacer(Modifier.height(18.dp))
+        HeroButton(text = "Start empty workout", onClick = onStart)
+    }
+}
+
+@Composable
+private fun ActiveWorkoutHero(session: WorkoutSession, onResume: () -> Unit) {
     val elapsed = rememberElapsedSeconds(session.startTime)
-    LiftCard(onClick = onResume) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Caption("In progress")
-                Text(session.name, style = MaterialTheme.typography.titleLarge)
-            }
-            Text(
-                formatClock(elapsed),
-                style = MaterialTheme.typography.titleLarge.merge(TabularNumbers),
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = onResume,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = MaterialTheme.shapes.medium,
-        ) { Text("Resume workout", style = MaterialTheme.typography.titleMedium) }
+    GradientCard(Modifier.fillMaxWidth()) {
+        Pill(
+            "IN PROGRESS",
+            container = Color.White.copy(alpha = 0.18f),
+            content = Color.White,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            session.name,
+            style = MaterialTheme.typography.headlineSmall,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            formatClock(elapsed),
+            style = MaterialTheme.typography.displaySmall.merge(TabularNumbers),
+            color = Color.White,
+        )
+        Spacer(Modifier.height(14.dp))
+        HeroButton(text = "Resume workout", onClick = onResume)
+    }
+}
+
+@Composable
+private fun HeroButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(54.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            contentColor = MaterialTheme.extended.heroGradient.first(),
+        ),
+    ) {
+        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable
 private fun TemplateCard(item: TemplateWithExercises, onStart: () -> Unit, onEdit: () -> Unit) {
-    LiftCard(onClick = onStart, contentPadding = PaddingValues(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)) {
+    LiftCard(onClick = onEdit, contentPadding = PaddingValues(start = 16.dp, top = 14.dp, bottom = 14.dp, end = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconCircle(Icons.Rounded.FitnessCenter, MaterialTheme.colorScheme.primary, size = 44.dp)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(item.template.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
+                Text(
+                    item.template.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 val names = item.exercises.map { it.name }
                 Caption(
                     text = when {
                         names.isEmpty() -> "No exercises yet"
-                        names.size <= 3 -> names.joinToString(" · ")
-                        else -> names.take(3).joinToString(" · ") + " +${names.size - 3}"
+                        else -> "${names.size} ${if (names.size == 1) "exercise" else "exercises"} · " + names.joinToString(", ")
                     },
+                    maxLines = 1,
                 )
             }
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Rounded.Edit,
-                    contentDescription = "Edit ${item.template.name}",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Spacer(Modifier.width(8.dp))
+            FilledIconButton(
+                onClick = onStart,
+                modifier = Modifier.size(48.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+            ) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = "Start ${item.template.name}")
             }
         }
     }
@@ -256,20 +320,16 @@ private fun RecordRow(item: PrWithExercise, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .heightIn(min = 56.dp)
-            .padding(vertical = 8.dp),
+            .heightIn(min = 64.dp)
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Icon(
-            Icons.Rounded.EmojiEvents,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.tertiary,
-        )
+        IconCircle(Icons.Rounded.EmojiEvents, MaterialTheme.colorScheme.tertiary)
         Column(Modifier.weight(1f)) {
             Text(
                 item.exerciseName,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

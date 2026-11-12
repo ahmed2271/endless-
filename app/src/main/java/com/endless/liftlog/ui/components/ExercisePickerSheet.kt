@@ -18,16 +18,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -71,7 +67,7 @@ fun ExercisePickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.background,
     ) {
         Column(Modifier.fillMaxHeight(0.92f).imePadding()) {
             Row(
@@ -92,21 +88,11 @@ fun ExercisePickerSheet(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
+            SearchField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search exercises") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Clear search")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                placeholder = "Search exercises",
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(8.dp))
             MuscleGroupFilter(selected = group, onSelect = { group = it })
@@ -151,21 +137,12 @@ fun ExercisePickerSheet(
                             .clickable(enabled = !added) {
                                 if (isSelected) selected.remove(exercise.id) else selected.add(exercise.id)
                             }
-                            .heightIn(min = 56.dp)
+                            .heightIn(min = 60.dp)
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Icon(
-                            imageVector = if (isSelected || added) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = when {
-                                added -> MaterialTheme.colorScheme.outline
-                                isSelected -> MaterialTheme.colorScheme.primary
-                                else -> MaterialTheme.colorScheme.outline
-                            },
-                            modifier = Modifier.size(24.dp),
-                        )
+                        ExerciseAvatar(exercise.name, exercise.muscleGroup)
                         Column(Modifier.weight(1f)) {
                             Text(
                                 exercise.name,
@@ -176,13 +153,16 @@ fun ExercisePickerSheet(
                             )
                             Caption(if (added) "${exercise.muscleGroup.label} · already added" else exercise.muscleGroup.label)
                         }
-                        if (isSelected) {
-                            Text(
-                                "${selected.indexOf(exercise.id) + 1}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isSelected || added) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = when {
+                                added -> MaterialTheme.colorScheme.outline
+                                isSelected -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.outlineVariant
+                            },
+                            modifier = Modifier.size(26.dp),
+                        )
                     }
                 }
             }

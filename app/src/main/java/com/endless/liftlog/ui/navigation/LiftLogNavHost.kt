@@ -1,6 +1,7 @@
 package com.endless.liftlog.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,8 +24,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -33,6 +34,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,9 +66,12 @@ import com.endless.liftlog.ui.prs.RecordsViewModel
 import com.endless.liftlog.ui.progress.ExerciseDetailScreen
 import com.endless.liftlog.ui.progress.ProgressScreen
 import com.endless.liftlog.ui.progress.ProgressViewModel
+import com.endless.liftlog.ui.settings.SettingsScreen
+import com.endless.liftlog.ui.settings.SettingsViewModel
 import com.endless.liftlog.ui.templates.TemplateEditorScreen
 import com.endless.liftlog.ui.templates.TemplateEditorViewModel
 import com.endless.liftlog.ui.theme.TabularNumbers
+import com.endless.liftlog.ui.theme.extended
 import com.endless.liftlog.ui.workout.ActiveWorkoutScreen
 import com.endless.liftlog.ui.workout.ActiveWorkoutViewModel
 import com.endless.liftlog.ui.workout.rememberElapsedSeconds
@@ -113,6 +119,7 @@ fun LiftLogRoot(container: AppContainer, openWorkoutRequests: StateFlow<Int>) {
         }
 
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (showBottomBar) {
@@ -143,6 +150,15 @@ fun LiftLogRoot(container: AppContainer, openWorkoutRequests: StateFlow<Int>) {
                         onOpenWorkout = { navController.navigate(ActiveWorkoutRoute) { launchSingleTop = true } },
                         onEditTemplate = { navController.navigate(TemplateEditorRoute(it)) },
                         onOpenExercise = { navController.navigate(ExerciseDetailRoute(it)) },
+                        onOpenSettings = { navController.navigate(SettingsRoute) { launchSingleTop = true } },
+                    )
+                }
+                composable<SettingsRoute> {
+                    SettingsScreen(
+                        viewModel = viewModel {
+                            SettingsViewModel(container.backupManager, container.workoutRepository, container.restTimer)
+                        },
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable<HistoryRoute> {
@@ -179,6 +195,7 @@ fun LiftLogRoot(container: AppContainer, openWorkoutRequests: StateFlow<Int>) {
                                 container.exerciseRepository,
                                 container.templateRepository,
                                 container.restTimer,
+                                container.backupManager,
                             )
                         },
                         onBack = { navController.popBackStack() },
@@ -239,7 +256,10 @@ fun LiftLogRoot(container: AppContainer, openWorkoutRequests: StateFlow<Int>) {
 
 @Composable
 private fun LiftLogBottomBar(navController: NavHostController, destination: NavDestination?) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+    NavigationBar(
+        containerColor = MaterialTheme.extended.card,
+        tonalElevation = 0.dp,
+    ) {
         topLevelDestinations.forEach { item ->
             NavigationBarItem(
                 selected = destination.isOn(item),
@@ -251,7 +271,12 @@ private fun LiftLogBottomBar(navController: NavHostController, destination: NavD
                     }
                 },
                 icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(item.label) },
+                label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
             )
         }
     }
@@ -260,27 +285,31 @@ private fun LiftLogBottomBar(navController: NavHostController, destination: NavD
 @Composable
 private fun WorkoutInProgressBar(session: WorkoutSession, onClick: () -> Unit) {
     val elapsed = rememberElapsedSeconds(session.startTime)
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Brush.horizontalGradient(MaterialTheme.extended.heroGradient))
+            .clickable(onClick = onClick)
+            .heightIn(min = 52.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.heightIn(min = 52.dp).padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(
-                session.name,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(formatClock(elapsed), style = MaterialTheme.typography.titleSmall.merge(TabularNumbers))
-            Spacer(Modifier.width(16.dp))
-            Text("Resume", style = MaterialTheme.typography.labelLarge)
-        }
+        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            session.name,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            formatClock(elapsed),
+            style = MaterialTheme.typography.titleSmall.merge(TabularNumbers),
+            color = Color.White,
+        )
+        Spacer(Modifier.width(16.dp))
+        Text("Resume", style = MaterialTheme.typography.labelLarge, color = Color.White)
     }
 }

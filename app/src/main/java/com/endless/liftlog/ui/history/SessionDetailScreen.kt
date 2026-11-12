@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.endless.liftlog.ui.components.Caption
+import com.endless.liftlog.ui.components.ExerciseAvatar
 import com.endless.liftlog.ui.components.ConfirmDialog
 import com.endless.liftlog.ui.components.LiftCard
 import com.endless.liftlog.ui.components.Stat
@@ -75,6 +77,7 @@ fun SessionDetailScreen(
 
     val session = state.session
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -109,7 +112,7 @@ fun SessionDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -121,8 +124,8 @@ fun SessionDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Column(Modifier.padding(horizontal = 4.dp)) {
-                    Text(formatLongDay(session.date), style = MaterialTheme.typography.titleMedium)
+                LiftCard {
+                    Text(formatLongDay(session.date), style = MaterialTheme.typography.titleLarge)
                     Caption(
                         buildString {
                             append(formatTime(session.startTime))
@@ -131,7 +134,7 @@ fun SessionDetailScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth()) {
-                        Stat("Duration", formatDuration(session.startTime, session.endTime), Modifier.weight(1f))
+                        Stat("Duration", formatDuration(session.startTime, session.endTime), Modifier.weight(1.1f))
                         Stat("Volume", formatVolume(state.volume), Modifier.weight(1.2f))
                         Stat("Sets", state.workingSets.toString(), Modifier.weight(0.6f))
                         Stat("PRs", state.recordCount.toString(), Modifier.weight(0.6f))
@@ -139,14 +142,16 @@ fun SessionDetailScreen(
                 }
             }
             items(state.exercises, key = { it.exerciseId }) { exercise ->
-                LiftCard(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)) {
+                LiftCard(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 12.dp)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onOpenExercise(exercise.exerciseId) }
-                            .heightIn(min = 48.dp),
+                            .heightIn(min = 56.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        ExerciseAvatar(exercise.name, exercise.muscleGroup)
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
                             Caption(exercise.muscleGroup.label)
