@@ -72,7 +72,7 @@ You need a computer with [Android platform-tools](https://developer.android.com/
    adb pull /data/local/tmp/liftlog.db
    adb pull /data/local/tmp/liftlog.db-wal
    ```
-   Check that `liftlog.db` is now on the computer and isn't empty (a few dozen KB or more). If `run-as` says *package not debuggable*, the installed copy is a release build and can't be recovered. Stop here and keep it installed.
+   Check that **both** files are now on the computer. `liftlog.db` can be as small as 4 KB: recent data lives in `liftlog.db-wal`, which is often the bigger file and must not be skipped. If `run-as` says *package not debuggable*, the installed copy is a release build and can't be recovered. Stop here and keep it installed.
 2. **Reinstall**: `adb uninstall com.endless.liftlog`, then `adb install app-debug.apk` using the new debug APK. **Don't open the app yet**: on first launch it would create an empty database.
 3. **Copy the data back in**:
    ```
